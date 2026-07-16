@@ -36,16 +36,6 @@ SEVERITY_MAP = {
 }
 
 
-def _extract_hour(ts: str) -> str:
-    if "T" in ts:
-        time_part = ts.split("T")[1]
-        return time_part[:2] + ":00" if len(time_part) >= 2 else "unknown"
-    parts = ts.split()
-    if len(parts) >= 3:
-        return parts[2][:2] + ":00"
-    return "unknown"
-
-
 class SyslogParser(BaseParser):
     name = "syslog"
     description = "Linux syslog, /var/log/auth.log, messages, secure (BSD + rsyslog formats)"
@@ -78,7 +68,7 @@ class SyslogParser(BaseParser):
 
         hourly = Counter()
         for e in entries:
-            hourly[_extract_hour(e["timestamp"])] += 1
+            hourly[self._hour_key(e["timestamp"])] += 1
 
         fail_msg_counter = Counter(e["message"] for e in auth_failures)
 

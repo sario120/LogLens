@@ -135,11 +135,7 @@ class NginxAccessParser(BaseParser):
         hourly = Counter()
         hourly_rt: dict[str, list[float]] = defaultdict(list)
         for e in entries:
-            ts = e["timestamp"]
-            if "T" in ts:
-                hour = ts.split("T")[1][:2] + ":00"
-            else:
-                hour = "unknown"
+            hour = self._hour_key(e["timestamp"])
             hourly[hour] += 1
             if e.get("response_time") is not None:
                 hourly_rt[hour].append(e["response_time"])

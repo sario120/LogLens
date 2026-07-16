@@ -73,15 +73,7 @@ class ApiBackendParser(BaseParser):
 
         hourly = Counter()
         for e in entries:
-            ts = e["timestamp"]
-            if "T" in ts:
-                hour = ts.split("T")[1][:2] + ":00"
-            elif " " in ts:
-                parts = ts.split()
-                hour = parts[1][:2] + ":00" if len(parts) > 1 else "unknown"
-            else:
-                hour = "unknown"
-            hourly[hour] += 1
+            hourly[self._hour_key(e["timestamp"])] += 1
 
         error_entries = [e for e in entries if e["level"] in ("error", "fatal", "critical")]
         error_msg_counter = Counter(e["message"][:100] for e in error_entries if e.get("message"))
@@ -159,7 +151,7 @@ class ApiBackendParser(BaseParser):
                 ],
                 "endpoint_details": endpoint_table[:20],
                 "error_samples": [
-                    {"timestamp": e["timestamp"], "message": e["message"][:200]}
+                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200]}
                     for e in error_entries[:25]
                 ],
             },

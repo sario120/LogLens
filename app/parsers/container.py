@@ -60,12 +60,7 @@ class ContainerLogParser(BaseParser):
 
         hourly = Counter()
         for e in entries:
-            ts = e["timestamp"]
-            if "T" in ts:
-                hour = ts.split("T")[1][:2] + ":00"
-            else:
-                hour = "unknown"
-            hourly[hour] += 1
+            hourly[self._hour_key(e["timestamp"])] += 1
 
         error_fingerprints = Counter()
         for e in error_entries:
@@ -107,7 +102,7 @@ class ContainerLogParser(BaseParser):
                     for k, v in level_counter.most_common()
                 ],
                 "error_samples": [
-                    {"timestamp": e["timestamp"], "message": e["message"][:200]}
+                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200]}
                     for e in error_entries[:25]
                 ],
             },

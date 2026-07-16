@@ -68,6 +68,13 @@ async def authenticate(request: Request, body: dict):
     return response
 
 
+@app.post("/api/logout")
+async def logout(request: Request):
+    response = JSONResponse({"ok": True})
+    response.delete_cookie("loglens_token")
+    return response
+
+
 @app.get("/api/log-types")
 async def log_types(request: Request):
     auth_err = _require_auth(request)

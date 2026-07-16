@@ -36,7 +36,8 @@ def _extract_client(message: str) -> str | None:
     for pat in CLIENT_PATTERNS:
         m = pat.search(message)
         if m:
-            return m.group("client") or m.group("ip")
+            val = m.group("client") or m.group("ip")
+            return val.rstrip(",") if val else None
     return None
 
 
@@ -73,12 +74,7 @@ class NginxErrorParser(BaseParser):
 
         hourly = Counter()
         for e in entries:
-            ts = e["timestamp"]
-            if "T" in ts:
-                hour = ts.split("T")[1][:2] + ":00"
-            else:
-                hour = "unknown"
-            hourly[hour] += 1
+            hourly[self._hour_key(e["timestamp"])] += 1
 
         level_order = {"emerg": 0, "alert": 1, "crit": 2, "error": 3, "warn": 4, "notice": 5, "info": 6, "debug": 7}
         level_table = [

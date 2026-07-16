@@ -34,12 +34,15 @@ class BaseParser(ABC):
 
         if exclude_ips:
             skip = set(exclude_ips)
-            self.entries = [e for e in self.entries if e.get("ip") not in skip]
+            self.entries = [e for e in self.entries if self._get_ip(e) not in skip]
             parsed = len(self.entries)
 
         self.processing_ms = round((time.time() - t0) * 1000, 1)
         self._compute_time_range()
         return self._build_report(total, parsed)
+
+    def _get_ip(self, entry: dict) -> str | None:
+        return entry.get("ip") or entry.get("source_ip") or entry.get("client")
 
     @abstractmethod
     def _parse_line(self, line: str) -> dict | None:
@@ -58,3 +61,19 @@ class BaseParser(ABC):
         if timestamps:
             self.start_time = min(timestamps)
             self.end_time = max(timestamps)
+
+    @staticmethod
+    def _hour_key(ts: str) -> str:
+        if not ts:
+            return "unknown"
+        if "T" in ts:
+            date_part = ts.split("T")[0]
+            time_part = ts.split("T")[1]
+            hour = time_part[:2] if len(time_part) >= 2 else "00"
+            return f"{date_part} {hour}:00"
+        parts = ts.split()
+        if len(parts) >= 3:
+            return parts[2][:2] + ":00" if len(parts[2]) >= 2 else "unknown"
+        if len(parts) >= 2:
+            return parts[1][:2] + ":00" if len(parts[1]) >= 2 else "unknown"
+        return "unknown"

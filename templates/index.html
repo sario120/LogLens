@@ -62,7 +62,10 @@ document.addEventListener('alpine:init', () => {
       this.token = data.token;
       this.loggedIn = true;
     },
-    logout() { this.token = null; this.loggedIn = false; },
+    async logout() {
+      try { await fetch('/api/logout', {method:'POST', headers:{'Authorization':'Bearer '+this.token}}); } catch(e) {}
+      this.token = null; this.loggedIn = false;
+    },
   });
 
   Alpine.data('analyzer', () => ({
@@ -361,6 +364,7 @@ document.addEventListener('alpine:init', () => {
       } finally {
         if (document.body.contains(exportRoot)) document.body.removeChild(exportRoot);
         document.documentElement.style.overflowX = prevOverflowX;
+        this.$nextTick(() => renderCharts(this.report));
         this.pdfExporting = false;
       }
     },
