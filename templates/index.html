@@ -374,9 +374,7 @@ document.addEventListener('alpine:init', () => {
       return b.toFixed(2) + ' PB';
     },
     formatNum(v) { return v != null ? Number(v).toLocaleString() : '\u2014'; },
-    formatPct(v) { return v != null ? v + '%' : '\u2014'; },
-    formatMs(v) { return v != null ? v + 's' : '\u2014'; },
-    formatMsMs(v) { return v != null ? v + 'ms' : '\u2014'; }
+    formatPct(v) { return v != null ? v + '%' : '\u2014'; }
   }));
 });
 </script>
@@ -1201,8 +1199,11 @@ function renderCharts(report) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requests</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bytes</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg RT</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min RT</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P95 RT</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max RT</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Seen</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Codes</th>
                       </tr></thead>
                       <tbody>
@@ -1212,8 +1213,11 @@ function renderCharts(report) {
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.total)"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="formatBytes(row.total_bytes)"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
+                            <td class="px-5 py-2.5 text-gray-400" x-text="row.min_rt != null ? row.min_rt + 's' : '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.p95_rt != null ? row.p95_rt + 's' : '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
+                            <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.first_seen || '—'"></td>
+                            <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.last_seen || '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' ') : '—'"></td>
                           </tr>
                         </template>
@@ -1259,6 +1263,7 @@ function renderCharts(report) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error Rate</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Duration</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P95 Duration</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Duration</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Codes</th>
                       </tr></thead>
                       <tbody>
@@ -1272,6 +1277,7 @@ function renderCharts(report) {
                             <td class="px-5 py-2.5 text-gray-400" x-text="formatPct(row.error_rate)"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.avg_duration != null ? row.avg_duration + 's' : '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.p95_duration != null ? row.p95_duration + 's' : '—'"></td>
+                            <td class="px-5 py-2.5 text-gray-400" x-text="row.max_duration != null ? row.max_duration + 's' : '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' ') : '—'"></td>
                           </tr>
                         </template>

@@ -8,8 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import API_KEY, SECRET_KEY, DEBUG
-from app.parsers import LOG_TYPES
+from app.config import API_KEY, SECRET_KEY
 from app.analyzers.report import parse_and_analyze
 
 app = FastAPI(title="LogLens", version="1.0.0", docs_url=None, redoc_url=None)
@@ -73,14 +72,6 @@ async def logout(request: Request):
     response = JSONResponse({"ok": True})
     response.delete_cookie("loglens_token")
     return response
-
-
-@app.get("/api/log-types")
-async def log_types(request: Request):
-    auth_err = _require_auth(request)
-    if auth_err:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return {"types": LOG_TYPES}
 
 
 @app.post("/api/analyze")
