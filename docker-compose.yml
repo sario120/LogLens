@@ -1,0 +1,17 @@
+services:
+  loglens:
+    build: .
+    container_name: loglens
+    restart: unless-stopped
+    ports:
+      - "8600:8600"
+    environment:
+      - LOGS_PORTAL_API_KEY=${LOGS_PORTAL_API_KEY:-changeme}
+      - LOGS_PORTAL_SECRET=${LOGS_PORTAL_SECRET:-change-this-in-production}
+      - LOGS_PORTAL_HOST=0.0.0.0
+      - LOGS_PORTAL_PORT=8600
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
