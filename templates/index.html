@@ -723,6 +723,58 @@ function renderCharts(report) {
       }
     } catch(e) { console.error('upstream chart:', e); }
   }
+
+  if (report.log_type === 'postgres') {
+    if (charts.duration_histogram && charts.duration_histogram.length) {
+      try {
+        new Chart(document.getElementById('chart-pg-duration'), {
+          type: 'bar',
+          data: {
+            labels: charts.duration_histogram.map(d => d.label),
+            datasets: [{ label: 'Queries', data: charts.duration_histogram.map(d => d.value), backgroundColor: charts.duration_histogram.map(d => d.label.includes('5s') || d.label.includes('1-5s') ? dangerC : d.label.includes('1s') || d.label.includes('500ms') ? warningC : accentMid), borderRadius: 4 }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: tickColor }, grid: { display: false } }, y: { title: { display: true, text: 'Count', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } } }, plugins: { legend: { display: false } } }
+        });
+      } catch(e) { console.error('pg duration chart:', e); }
+    }
+    if (charts.stmt_type_distribution && charts.stmt_type_distribution.length) {
+      try {
+        const stmtColors = { SELECT: '#3b82f6', INSERT: '#22c55e', UPDATE: '#f59e0b', DELETE: '#ef4444', BEGIN: '#a78bfa', COMMIT: '#a78bfa', ROLLBACK: '#f97316', COPY: '#ec4899', SET: '#6366f1', CREATE: '#14b8a6', OTHER: '#6b7280' };
+        new Chart(document.getElementById('chart-pg-stmts'), {
+          type: 'doughnut',
+          data: {
+            labels: charts.stmt_type_distribution.map(d => d.label),
+            datasets: [{ data: charts.stmt_type_distribution.map(d => d.value), backgroundColor: charts.stmt_type_distribution.map(d => stmtColors[d.label] || '#6b7280'), borderWidth: 0 }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: tickColor, padding: 8, usePointStyle: true, pointStyle: 'circle', font: { size: 11 } } } } }
+        });
+      } catch(e) { console.error('pg stmt chart:', e); }
+    }
+    if (charts.top_tables && charts.top_tables.length) {
+      try {
+        new Chart(document.getElementById('chart-pg-tables'), {
+          type: 'bar',
+          data: {
+            labels: charts.top_tables.map(d => d.label),
+            datasets: [{ label: 'Queries', data: charts.top_tables.map(d => d.value), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+          },
+          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'Count', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+        });
+      } catch(e) { console.error('pg tables chart:', e); }
+    }
+    if (charts.top_tables_by_duration && charts.top_tables_by_duration.length) {
+      try {
+        new Chart(document.getElementById('chart-pg-table-duration'), {
+          type: 'bar',
+          data: {
+            labels: charts.top_tables_by_duration.map(d => d.label),
+            datasets: [{ label: 'Total Duration (ms)', data: charts.top_tables_by_duration.map(d => d.value), backgroundColor: dangerC, borderRadius: 4 }]
+          },
+          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'ms', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+        });
+      } catch(e) { console.error('pg table duration chart:', e); }
+    }
+  }
 }
 </script>
 
@@ -904,6 +956,7 @@ function renderCharts(report) {
                   <option value="container">Container</option>
                   <option value="syslog">Syslog</option>
                   <option value="api_backend">API Backend</option>
+                  <option value="postgres">PostgreSQL</option>
                 </select>
               </div>
             </div>
@@ -1007,6 +1060,17 @@ function renderCharts(report) {
           <template x-if="report.summary">
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <template x-for="card in [
+                { show: report.summary.total_entries != null && report.log_type === 'postgres', label: 'Total Entries', value: formatNum(report.summary.total_entries), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+                { show: report.summary.statements != null && report.log_type === 'postgres', label: 'Statements', value: formatNum(report.summary.statements), icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+                { show: report.summary.slow_queries != null && report.log_type === 'postgres' && report.summary.slow_queries > 0, label: 'Slow Queries (>1s)', value: formatNum(report.summary.slow_queries), icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', cls: report.summary.slow_queries > 10 ? 'text-danger' : report.summary.slow_queries > 3 ? 'text-warning' : 'text-accent-400' },
+                { show: report.summary.read_queries != null && report.log_type === 'postgres', label: 'Read Queries', value: formatNum(report.summary.read_queries), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
+                { show: report.summary.write_queries != null && report.log_type === 'postgres', label: 'Write Queries', value: formatNum(report.summary.write_queries), icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
+                { show: report.summary.tx_ops != null && report.log_type === 'postgres', label: 'Transactions', value: formatNum(report.summary.tx_ops), icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+                { show: report.summary.errors != null && report.log_type === 'postgres' && report.summary.errors > 0, label: 'Errors', value: formatNum(report.summary.errors), icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', cls: report.summary.errors > 5 ? 'text-danger' : 'text-warning' },
+                { show: report.summary.warnings != null && report.log_type === 'postgres' && report.summary.warnings > 0, label: 'Warnings', value: formatNum(report.summary.warnings), icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', cls: 'text-warning' },
+                { show: report.summary.unique_tables != null && report.log_type === 'postgres', label: 'Unique Tables', value: formatNum(report.summary.unique_tables), icon: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+                { show: report.summary.checkpoints != null && report.log_type === 'postgres' && report.summary.checkpoints > 0, label: 'Checkpoints', value: formatNum(report.summary.checkpoints), icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+                { show: report.summary.total_entries != null && report.log_type !== 'postgres', label: 'Total Entries', value: formatNum(report.summary.total_entries), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
                 { show: report.summary.total_requests != null, label: report.log_type === 'nginx_access' ? 'Total Requests' : 'Total Lines', value: formatNum(report.summary.total_requests), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
                 { show: report.summary.unique_ips != null, label: 'Unique IPs', value: formatNum(report.summary.unique_ips), icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
                 { show: report.summary.unique_paths != null, label: 'Unique Paths', value: formatNum(report.summary.unique_paths), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
@@ -1074,6 +1138,77 @@ function renderCharts(report) {
                   <div class="relative" style="height:260px"><canvas id="chart-upstream" data-chart></canvas></div>
                 </div>
               </div>
+            </div>
+          </template>
+
+          <template x-if="report.log_type === 'postgres' && report.charts">
+            <div class="space-y-4">
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Query Performance</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div x-show="report.duration_stats" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Query Duration Stats</h4>
+                  <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div><span class="text-gray-500">Count:</span> <span class="text-gray-200 font-medium" x-text="report.duration_stats?.count"></span></div>
+                    <div><span class="text-gray-500">Avg:</span> <span class="text-gray-200 font-medium" x-text="report.duration_stats?.avg + 'ms'"></span></div>
+                    <div><span class="text-gray-500">P50:</span> <span class="text-gray-200 font-medium" x-text="report.duration_stats?.p50 + 'ms'"></span></div>
+                    <div><span class="text-gray-500">P95:</span> <span :class="report.duration_stats?.p95 > 1000 ? 'text-danger' : report.duration_stats?.p95 > 100 ? 'text-warning' : 'text-gray-200'" class="font-medium" x-text="report.duration_stats?.p95 + 'ms'"></span></div>
+                    <div><span class="text-gray-500">P99:</span> <span :class="report.duration_stats?.p99 > 1000 ? 'text-danger' : report.duration_stats?.p99 > 100 ? 'text-warning' : 'text-gray-200'" class="font-medium" x-text="report.duration_stats?.p99 + 'ms'"></span></div>
+                    <div><span class="text-gray-500">Max:</span> <span :class="report.duration_stats?.max > 5000 ? 'text-danger' : report.duration_stats?.max > 1000 ? 'text-warning' : 'text-gray-200'" class="font-medium" x-text="report.duration_stats?.max + 'ms'"></span></div>
+                  </div>
+                </div>
+                <div x-show="report.checkpoint_metrics" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Checkpoint Metrics</h4>
+                  <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div><span class="text-gray-500">Count:</span> <span class="text-gray-200 font-medium" x-text="report.checkpoint_metrics?.count"></span></div>
+                    <div><span class="text-gray-500">Avg Total:</span> <span :class="report.checkpoint_metrics?.total_avg > 10 ? 'text-danger' : report.checkpoint_metrics?.total_avg > 3 ? 'text-warning' : 'text-gray-200'" class="font-medium" x-text="report.checkpoint_metrics?.total_avg + 's'"></span></div>
+                    <div><span class="text-gray-500">Avg Write:</span> <span class="text-gray-200 font-medium" x-text="report.checkpoint_metrics?.write_avg + 's'"></span></div>
+                    <div><span class="text-gray-500">Max Total:</span> <span :class="report.checkpoint_metrics?.total_max > 10 ? 'text-danger' : report.checkpoint_metrics?.total_max > 5 ? 'text-warning' : 'text-gray-200'" class="font-medium" x-text="report.checkpoint_metrics?.total_max + 's'"></span></div>
+                  </div>
+                </div>
+                <div x-show="report.charts.duration_histogram && report.charts.duration_histogram.length" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Query Duration Distribution</h4>
+                  <div class="relative" style="height:260px"><canvas id="chart-pg-duration" data-chart></canvas></div>
+                </div>
+                <div x-show="report.charts.stmt_type_distribution && report.charts.stmt_type_distribution.length" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Statement Type Distribution</h4>
+                  <div class="relative" style="height:260px"><canvas id="chart-pg-stmts" data-chart></canvas></div>
+                </div>
+                <div x-show="report.charts.top_tables && report.charts.top_tables.length" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Most Queried Tables</h4>
+                  <div class="relative" style="height:260px"><canvas id="chart-pg-tables" data-chart></canvas></div>
+                </div>
+                <div x-show="report.charts.top_tables_by_duration && report.charts.top_tables_by_duration.length" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Tables by Total Query Duration</h4>
+                  <div class="relative" style="height:260px"><canvas id="chart-pg-table-duration" data-chart></canvas></div>
+                </div>
+              </div>
+              <template x-if="report.slow_queries && report.slow_queries.length">
+                <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Slow Queries <span class="text-warning">(&gt;1s)</span></h4>
+                  <div class="overflow-x-auto table-scroll">
+                    <table class="w-full text-sm">
+                      <thead><tr class="border-b border-dark-600">
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Table</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statement</th>
+                      </tr></thead>
+                      <tbody>
+                        <template x-for="(q, idx) in report.slow_queries.slice(0, 30)" :key="idx">
+                          <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
+                            <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="q.timestamp"></td>
+                            <td class="px-4 py-2 font-mono text-xs" :class="q.duration_ms > 10000 ? 'text-danger' : q.duration_ms > 1000 ? 'text-warning' : 'text-gray-300'" x-text="q.duration_ms >= 1000 ? (q.duration_ms / 1000).toFixed(1) + 's' : q.duration_ms.toFixed(0) + 'ms'"></td>
+                            <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="q.stmt_type || '—'"></td>
+                            <td class="px-4 py-2 text-gray-400 text-xs" x-text="q.table || '—'"></td>
+                            <td class="px-4 py-2 text-gray-300 font-mono text-xs max-w-lg truncate" x-text="q.message"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
             </div>
           </template>
 

@@ -15,6 +15,12 @@ TYPE_MARKERS = {
         re.compile(r'^\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+\S+(\[\d+\])?:'),
         re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*\s+\S+\s+\S+(\[\d+\])?:'),
     ],
+    "postgres": [
+        re.compile(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+\s+\S+\s+\[\d+\]\s+(?:LOG|WARNING|ERROR|FATAL|PANIC):'),
+        re.compile(r'duration:\s*[\d.]+\s*ms\s+statement:'),
+        re.compile(r'checkpoint (?:starting|complete):'),
+        re.compile(r'database system (?:is ready|was)'),
+    ],
     "api_backend": [
         re.compile(r'^\{'),
         re.compile(r'^\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}'),
