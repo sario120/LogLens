@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/css/app.css">
 <style>
-:root { --c-bg:#0a0e17; --c-surface:#111827; --c-surface-raised:#1a2234; --c-border:#243049; --c-text:#ffffff; --c-text-dim:#b4bdd0; --c-text-muted:#8892a8; --c-text-faint:#6b7890; --c-accent:#60a5fa; --c-accent-mid:#3b82f6; --c-accent-deep:#2563eb; --c-success:#22c55e; --c-warning:#f59e0b; --c-danger:#ef4444; --c-scrollbar-track:#111827; --c-scrollbar-thumb:#243049; --c-input-bg:var(--c-surface-raised); --c-hover:rgba(255,255,255,.05); --c-shadow:rgba(0,0,0,.4); --c-gray-50:#0f172a; --c-gray-100:#1e293b; --c-gray-200:#e8eaef; --c-gray-300:#d0d5e0; --c-gray-400:#a8b4c4; --c-gray-500:#8490a4; --c-gray-600:#6b7890; --c-gray-700:#374151; --c-gray-800:#1f2937; --c-gray-900:#111827; }
+:root { --c-bg:#0f1520; --c-surface:#161e2e; --c-surface-raised:#1e2940; --c-border:#2d3a52; --c-text:#f0f2f7; --c-text-dim:#c0c8d8; --c-text-muted:#9aa5b8; --c-text-faint:#7582a0; --c-accent:#60a5fa; --c-accent-mid:#3b82f6; --c-accent-deep:#2563eb; --c-success:#34d399; --c-warning:#fbbf24; --c-danger:#f87171; --c-scrollbar-track:#161e2e; --c-scrollbar-thumb:#2d3a52; --c-input-bg:var(--c-surface-raised); --c-hover:rgba(255,255,255,.06); --c-shadow:rgba(0,0,0,.4); --c-gray-50:#0f172a; --c-gray-100:#1e293b; --c-gray-200:#e8ecf2; --c-gray-300:#d4dae6; --c-gray-400:#b0bcc8; --c-gray-500:#8c98ac; --c-gray-600:#6b7890; --c-gray-700:#3a4760; --c-gray-800:#243049; --c-gray-900:#161e2e; }
 html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f9; --c-border:#e2e8f0; --c-text:#0f172a; --c-text-dim:#334155; --c-text-muted:#475569; --c-text-faint:#64748b; --c-accent:#3b82f6; --c-accent-mid:#2563eb; --c-accent-deep:#1d4ed8; --c-success:#16a34a; --c-warning:#d97706; --c-danger:#dc2626; --c-scrollbar-track:#f1f5f9; --c-scrollbar-thumb:#cbd5e1; --c-input-bg:#ffffff; --c-hover:rgba(0,0,0,.04); --c-shadow:rgba(0,0,0,.08); --c-gray-50:#f8fafc; --c-gray-100:#f1f5f9; --c-gray-200:#e2e8f0; --c-gray-300:#cbd5e1; --c-gray-400:#94a3b8; --c-gray-500:#64748b; --c-gray-600:#475569; --c-gray-700:#334155; --c-gray-800:#1e293b; --c-gray-900:#0f172a; }
 *{scrollbar-width:thin;scrollbar-color:var(--c-scrollbar-thumb) var(--c-scrollbar-track)}
 *::-webkit-scrollbar{width:6px;height:6px}
@@ -30,7 +30,8 @@ html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f
   .text-warning { color: #d97706 !important; }
   .text-danger { color: #dc2626 !important; }
   .border-dark-600, .border-dark-700 { border-color: #d1d5db !important; }
-  button, .spinner { display: none !important; }
+  button, .spinner, [x-cloak] { display: none !important; }
+  #toast-container { display: none !important; }
   #report-content .rounded-xl { break-inside: avoid; page-break-inside: avoid; }
   canvas[data-chart] { max-width: 100% !important; }
 }
@@ -46,6 +47,7 @@ html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f
 <script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark');</script>
 </head>
 <body class="min-h-screen font-sans" style="background:var(--c-bg);color:var(--c-text)">
+<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-accent-500 focus:text-white focus:rounded-lg">Skip to content</a>
 
 <script>
 document.addEventListener('alpine:init', () => {
@@ -58,7 +60,11 @@ document.addEventListener('alpine:init', () => {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({api_key: apiKey})
       });
-      if (!res.ok) throw new Error('Invalid key');
+      if (!res.ok) {
+        let msg = 'Invalid key';
+        try { const d = await res.json(); msg = d.detail || msg; } catch(_) {}
+        throw new Error(msg);
+      }
       const data = await res.json();
       this.token = data.token;
       this.loggedIn = true;
@@ -98,7 +104,6 @@ document.addEventListener('alpine:init', () => {
     pasteContent: '',
     dragOver: false,
     pdfExporting: false,
-    pdfError: null,
     toastMessage: null,
     toastType: 'info',
     uploadProgress: -1,
@@ -109,6 +114,7 @@ document.addEventListener('alpine:init', () => {
       this.error = null;
       try {
         if (this.file) {
+          if (this.file.size > 50 * 1024 * 1024) { this.error = 'File too large (max 50MB).'; this.view = 'upload'; return; }
           await this._uploadFile();
           return;
         } else if (this.pasteContent.trim()) {
@@ -150,14 +156,16 @@ document.addEventListener('alpine:init', () => {
     async _handleResponse(res) {
       if (!res.ok) {
         if (res.status === 401) { Alpine.store('auth').logout(); throw new Error('SESSION_EXPIRED'); }
-        const e = await res.json(); throw new Error(e.detail || 'Analysis failed');
+        let msg = 'Analysis failed';
+        try { const e = await res.json(); msg = e.detail || msg; } catch(_) {}
+        throw new Error(msg);
       }
       this.report = await res.json();
       if (this.report.error) throw new Error(this.report.error);
       this.view = 'report';
       this.$nextTick(() => renderCharts(this.report));
     },
-    reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; },
+    reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; this.$nextTick(() => { const el = document.getElementById('main-content'); if (el) el.focus(); }); },
     exportJson() {
       if (!this.report) return;
       const blob = new Blob([JSON.stringify(this.report, null, 2)], {type: 'application/json'});
@@ -203,7 +211,6 @@ document.addEventListener('alpine:init', () => {
     async exportPdf() {
       if (!this.report) return;
       this.pdfExporting = true;
-      this.pdfError = null;
       await this.$nextTick();
       await new Promise(r => setTimeout(r, 1100));
 
@@ -408,7 +415,7 @@ document.addEventListener('alpine:init', () => {
       } finally {
         if (document.body.contains(exportRoot)) document.body.removeChild(exportRoot);
         document.documentElement.style.overflowX = prevOverflowX;
-        this.$nextTick(() => renderCharts(this.report));
+        if (this.report) this.$nextTick(() => renderCharts(this.report));
         this.pdfExporting = false;
       }
     },
@@ -445,8 +452,8 @@ function renderCharts(report) {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
-      x: { ticks: { color: tickColor }, grid: { color: gridColor } },
-      y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { display: false } }
+      x: { ticks: { color: tickColor }, grid: { color: horizontal ? gridColor : 'rgba(0,0,0,0)' } },
+      y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: horizontal ? 'rgba(0,0,0,0)' : gridColor } }
     },
     plugins: { legend: { display: false } }
   });
@@ -798,8 +805,8 @@ function renderCharts(report) {
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"/>
           </svg>
         </div>
-        <h1 class="text-4xl font-extrabold tracking-tight" :class="$store.theme.dark ? 'text-white' : 'text-gray-900'">LogLens</h1>
-        <p class="mt-2 text-sm" :class="$store.theme.dark ? 'text-gray-500' : 'text-gray-500'">Internal Log Analysis Portal</p>
+        <h1 class="text-4xl font-extrabold tracking-tight" style="color:var(--c-text)">LogLens</h1>
+        <p class="mt-2 text-sm" style="color:var(--c-text-muted)">Internal Log Analysis Portal</p>
       </div>
 
       <!-- Login Card -->
@@ -854,35 +861,35 @@ function renderCharts(report) {
       </div>
 
       <!-- Version tag -->
-      <p class="text-center mt-6 text-[11px]" :class="$store.theme.dark ? 'text-gray-700' : 'text-gray-400'">LogLens v1.0 &mdash; Internal Use Only</p>
+      <p class="text-center mt-6 text-[11px]" style="color:var(--c-text-faint)">LogLens v1.0 &mdash; Internal Use Only</p>
     </div>
   </div>
 </div>
 
 <div x-show="$store.auth.loggedIn" x-cloak class="min-h-screen flex flex-col" x-data="analyzer">
-    <header class="bg-dark-800 border-b border-dark-600 sticky top-0 z-50">
+    <header class="border-b sticky top-0 z-50 transition-colors" style="background:var(--c-surface);border-color:var(--c-border)">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-dark-700 border border-dark-600 flex items-center justify-center">
-            <svg class="w-4 h-4 text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--c-surface-raised);border:1px solid var(--c-border)">
+            <svg class="w-4 h-4" style="color:var(--c-accent)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
-          <span class="text-lg font-bold text-white tracking-tight">LogLens</span>
+          <span class="text-lg font-bold tracking-tight" style="color:var(--c-text)">LogLens</span>
         </div>
         <div class="flex items-center gap-2">
-          <button @click="$store.theme.toggle()" class="text-sm text-gray-400 hover:text-white transition px-2.5 py-1.5 rounded-lg hover:bg-dark-700" :title="$store.theme.dark ? 'Switch to light mode' : 'Switch to dark mode'">
+          <button @click="$store.theme.toggle()" class="text-sm transition px-2.5 py-1.5 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center" style="color:var(--c-text-muted)" :title="$store.theme.dark ? 'Switch to light mode' : 'Switch to dark mode'">
             <svg x-show="$store.theme.dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
             <svg x-show="!$store.theme.dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
           </button>
-          <button @click="$store.auth.logout(); reset()" class="text-sm text-gray-400 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-dark-700">
+          <button @click="$store.auth.logout(); reset()" class="text-sm transition px-3 py-1.5 rounded-lg min-h-[44px]" style="color:var(--c-text-muted)">
             Logout
           </button>
         </div>
       </div>
     </header>
 
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main id="main-content" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8" tabindex="-1">
 
       <template x-if="view === 'upload'">
         <div class="fade-in max-w-2xl mx-auto">
@@ -899,8 +906,8 @@ function renderCharts(report) {
             </template>
 
             <div class="flex gap-1 p-1 bg-dark-700 rounded-lg mb-5">
-              <button @click="inputMode='file'; file=null" :class="inputMode==='file' ? 'tab-active' : 'text-gray-400 hover:text-gray-200'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition">Upload File</button>
-              <button @click="inputMode='paste'; file=null" :class="inputMode==='paste' ? 'tab-active' : 'text-gray-400 hover:text-gray-200'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition">Paste Logs</button>
+              <button @click="inputMode='file'; file=null" :class="inputMode==='file' ? 'tab-active' : 'text-gray-400 hover:text-gray-200'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition min-h-[44px]">Upload File</button>
+              <button @click="inputMode='paste'; file=null" :class="inputMode==='paste' ? 'tab-active' : 'text-gray-400 hover:text-gray-200'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition min-h-[44px]">Paste Logs</button>
             </div>
 
             <template x-if="inputMode==='file'">
@@ -941,7 +948,7 @@ function renderCharts(report) {
 
             <template x-if="inputMode==='paste'">
               <div class="mb-5">
-                <label class="block text-sm font-medium text-gray-300 mb-2">Log Content</label>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Log Content <span x-show="pasteContent.trim()" class="text-gray-500 font-normal" x-text="'(' + pasteContent.trim().split('\\n').filter(l => l.trim()).length + ' lines)'"></span></label>
                 <textarea x-model="pasteContent" rows="10" placeholder="Paste your log content here...&#10;&#10;Each line should be a single log entry." class="w-full px-4 py-3 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm font-mono resize-y"></textarea>
               </div>
             </template>
@@ -963,12 +970,12 @@ function renderCharts(report) {
 
             <div class="mb-6">
               <label class="block text-sm font-medium text-gray-300 mb-2">Exclude IPs <span class="text-gray-500 font-normal">(optional)</span></label>
-              <input type="text" x-model="excludeIps" placeholder="e.g. 192.168.1.1, 10.0.0.5 — comma-separated"
+              <input type="text" x-model="excludeIps" @input="excludeIps = excludeIps.replace(/[^0-9.,\\s]/g, '')" placeholder="e.g. 192.168.1.1, 10.0.0.5 — comma-separated"
                 class="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm">
               <p class="text-xs text-gray-500 mt-1">Comma-separated IPs to skip from analysis</p>
             </div>
 
-            <button @click="analyze()" :disabled="!file && !pasteContent.trim()" class="w-full py-3 px-4 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition text-sm flex items-center justify-center gap-2">
+            <button @click="analyze()" :disabled="!file && !pasteContent.trim()" class="w-full py-3 px-4 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition text-sm flex items-center justify-center gap-2 min-h-[44px]">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
               Analyze Logs
             </button>
@@ -1041,20 +1048,13 @@ function renderCharts(report) {
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Export JSON
               </button>
-              <button @click="exportPdf()" :disabled="pdfExporting" class="px-4 py-2 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white transition text-sm font-medium flex items-center gap-1.5">
+              <button @click="exportPdf()" :disabled="pdfExporting" class="px-4 py-2 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white transition text-sm font-medium flex items-center gap-1.5 min-h-[44px]">
                 <svg x-show="!pdfExporting" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                 <svg x-show="pdfExporting" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                 <span x-text="pdfExporting ? 'Generating...' : 'Export PDF'"></span>
               </button>
             </div>
           </div>
-
-          <template x-if="pdfError">
-            <div class="-mt-2 p-2.5 rounded-lg bg-warning/10 border border-warning/20 text-warning text-xs flex items-center gap-2">
-              <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l6.518 11.6c.75 1.334-.213 2.98-1.742 2.98H3.48c-1.53 0-2.492-1.646-1.743-2.98l6.518-11.6zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-              <span x-text="pdfError"></span>
-            </div>
-          </template>
 
           <div id="report-content" class="space-y-6">
           <template x-if="report.summary">
@@ -1269,7 +1269,7 @@ function renderCharts(report) {
                   <h4 class="text-sm font-medium text-gray-300 mb-3">Response Time Distribution</h4>
                   <div class="relative" style="height:260px"><canvas id="chart-rt-hist" data-chart></canvas></div>
                 </div>
-                <div x-show="report.charts.duration_histogram && report.charts.duration_histogram.length" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                <div x-show="report.charts.duration_histogram && report.charts.duration_histogram.length && report.log_type !== 'postgres'" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
                   <h4 class="text-sm font-medium text-gray-300 mb-3">Duration Distribution</h4>
                   <div class="relative" style="height:260px"><canvas id="chart-duration-hist" data-chart></canvas></div>
                 </div>
@@ -1749,14 +1749,16 @@ function renderCharts(report) {
       </template>
     </main>
 
-    <footer class="border-t border-dark-600 py-4">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-600">LogLens v1.0 &mdash; Internal Use Only</div>
+    <footer class="border-t py-4" style="border-color:var(--c-border);padding-bottom:env(safe-area-inset-bottom, 0)">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs" style="color:var(--c-text-faint)">LogLens v1.0 &mdash; Internal Use Only</div>
     </footer>
   </div>
 </div>
 </div>
 
-<div x-show="toastMessage" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+    <div x-show="toastMessage" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+  id="toast-container"
+  aria-live="polite" role="status"
   class="fixed bottom-4 right-4 z-50 max-w-sm px-4 py-3 rounded-lg shadow-lg border text-sm flex items-center gap-2"
   :class="{'bg-accent-500/10 border-accent-500/30 text-accent-400': toastType==='info', 'bg-success/10 border-success/30 text-success': toastType==='success', 'bg-warning/10 border-warning/30 text-warning': toastType==='warning', 'bg-danger/10 border-danger/30 text-danger': toastType==='error'}">
   <span x-text="toastMessage"></span>

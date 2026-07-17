@@ -12,6 +12,24 @@ TEXT_PATTERN = re.compile(
 )
 
 
+def _safe_int(v):
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_float(v):
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return None
+
+
 class ApiBackendParser(BaseParser):
     name = "api_backend"
     description = "API backend logs (JSON structured or plain text with timestamps)"
@@ -43,8 +61,8 @@ class ApiBackendParser(BaseParser):
             "timestamp": str(ts), "level": level,
             "method": d.get("method") or d.get("http_method") or d.get("req_method"),
             "path": d.get("path") or d.get("url") or d.get("uri") or d.get("endpoint"),
-            "status": int(d["status"]) if "status" in d and d["status"] is not None else None,
-            "duration": float(d["duration"]) if "duration" in d and d["duration"] is not None else None,
+            "status": _safe_int(d.get("status")),
+            "duration": _safe_float(d.get("duration")),
             "message": str(msg),
             "request_id": d.get("request_id") or d.get("req_id") or d.get("trace_id"),
             "extra": {k: v for k, v in d.items() if k not in skip},

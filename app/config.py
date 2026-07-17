@@ -31,8 +31,8 @@ _INSECURE_DEFAULTS = {
 }
 _insecure = []
 for env_var, default in _INSECURE_DEFAULTS.items():
-    if os.getenv(env_var) is None:
+    if os.getenv(env_var) is None or os.getenv(env_var) == default:
         _insecure.append(env_var)
 if _insecure:
-    print(f"[FATAL] Refusing to start — set these env vars: {', '.join(_insecure)}", file=sys.stderr)
+    print(f"[FATAL] Refusing to start — set these env vars to non-default values: {', '.join(_insecure)}", file=sys.stderr)
     sys.exit(1)

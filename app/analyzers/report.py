@@ -47,7 +47,7 @@ def detect_log_type(raw: str) -> str | None:
         return None
 
     best = max(scores, key=scores.get)
-    if scores[best] < 2 and scores[best] < len(sample) * 0.3:
+    if scores[best] < 2 or scores[best] < len(sample) * 0.1:
         return None
     return best
 
@@ -65,9 +65,12 @@ def parse_and_analyze(raw: str, log_type: str | None = None, exclude_ips: list[s
     if log_type not in PARSERS:
         return {"error": f"Unknown log type: {log_type}", "log_type": None}
 
-    parser = PARSERS[log_type]()
-    report = parser.parse(raw, exclude_ips=exclude_ips)
-    report["detected_type"] = log_type
-    if exclude_ips:
-        report["excluded_ips"] = exclude_ips
-    return report
+    try:
+        parser = PARSERS[log_type]()
+        report = parser.parse(raw, exclude_ips=exclude_ips)
+        report["detected_type"] = log_type
+        if exclude_ips:
+            report["excluded_ips"] = exclude_ips
+        return report
+    except Exception as exc:
+        return {"error": f"Failed to parse {log_type} logs: {exc}", "log_type": log_type}

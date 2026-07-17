@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -8,6 +9,7 @@ from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from app.config import (
     API_KEY, SECRET_KEY, TOKEN_TTL, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_SIZE,
@@ -23,9 +25,27 @@ templates = Jinja2Templates(directory=str(BASE / "templates"))
 
 # --- rate limiter: per-IP, sliding window ---
 _auth_attempts: dict[str, list[float]] = defaultdict(list)
+_last_cleanup: float = time.time()
+_CLEANUP_INTERVAL = 60
+
+_AUTH_RATE_LIMIT = 10
+_AUTH_RATE_WINDOW = 60
 
 
-def _rate_limit(ip: str) -> None:
+def _cleanup_rate_limiters():
+    global _last_cleanup
+    now = time.time()
+    if now - _last_cleanup < _CLEANUP_INTERVAL:
+        return
+    _last_cleanup = now
+    stale = [ip for ip, ts_list in _auth_attempts.items()
+             if not ts_list or now - ts_list[-1] > AUTH_WINDOW_SECONDS * 2]
+    for ip in stale:
+        del _auth_attempts[ip]
+
+
+def _rate_limit_auth(ip: str) -> None:
+    _cleanup_rate_limiters()
     now = time.time()
     _auth_attempts[ip] = [t for t in _auth_attempts[ip] if now - t < AUTH_WINDOW_SECONDS]
     if len(_auth_attempts[ip]) >= AUTH_MAX_ATTEMPTS:
@@ -69,21 +89,24 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+class AuthBody(BaseModel):
+    api_key: str
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.post("/api/auth")
-async def authenticate(request: Request, body: dict):
+async def authenticate(request: Request, body: AuthBody):
     ip = _client_ip(request)
-    _rate_limit(ip)
+    _rate_limit_auth(ip)
 
-    key = body.get("api_key", "")
-    if not hmac.compare_digest(key, API_KEY):
+    if not hmac.compare_digest(body.api_key, API_KEY):
         raise HTTPException(status_code=401, detail="Invalid API key")
     ts = int(time.time())
-    token_id = hashlib.sha256(f"{ts}:{key}".encode()).hexdigest()[:32]
+    token_id = hashlib.sha256(f"{ts}:{body.api_key}".encode()).hexdigest()[:32]
     token = _sign_token(token_id, ts)
     response = JSONResponse({"token": token, "expires_in": TOKEN_TTL})
     secure = request.url.scheme == "https"
@@ -132,7 +155,10 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
             raw_bytes += chunk
         raw = raw_bytes.decode("utf-8", errors="replace")
     else:
-        body = await request.json()
+        try:
+            body = await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
         raw = body.get("content", "")
         log_type = body.get("log_type", "auto")
         exclude_ips = body.get("exclude_ips", "")

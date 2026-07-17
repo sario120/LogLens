@@ -1,6 +1,6 @@
 import re
 from collections import Counter, defaultdict
-from app.parsers.base import BaseParser
+from app.parsers.base import BaseParser, MONTH_MAP
 from app.config import SLOW_THRESHOLD, CRITICAL_THRESHOLD
 
 PATTERN = re.compile(
@@ -15,12 +15,6 @@ PATTERN = re.compile(
     r'(?: uct=(?P<upstream_connect_time>\d+(?:\.\d+)?))?'
 )
 
-MONTH_MAP = {
-    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
-}
-
-
 def _parse_nginx_time(ts: str) -> str:
     parts = ts.split()
     if len(parts) < 2:
@@ -32,7 +26,10 @@ def _parse_nginx_time(ts: str) -> str:
             year, time = date_part.split(":", 1)
         else:
             year, time = date_part, parts[1] if len(parts) > 1 else "00:00:00"
-        return f"{year}-{MONTH_MAP.get(day_parts[1], 0):02d}-{int(day_parts[0]):02d}T{time}"
+        try:
+            return f"{year}-{MONTH_MAP.get(day_parts[1], 0):02d}-{int(day_parts[0]):02d}T{time}"
+        except (ValueError, IndexError):
+            return ts
     return ts
 
 

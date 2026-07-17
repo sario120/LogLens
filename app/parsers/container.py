@@ -18,6 +18,10 @@ LEVEL_PATTERNS = [
     (re.compile(r'\b TRACE \b', re.I), "TRACE"),
 ]
 
+FALLBACK_TS = re.compile(
+    r'^(?P<ts>\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2})'
+)
+
 
 def _detect_level(message: str) -> str:
     for pat, level in LEVEL_PATTERNS:
@@ -43,13 +47,15 @@ class ContainerLogParser(BaseParser):
             }
 
         if len(line) > 20:
-            return {
-                "timestamp": "",
-                "stream": "stdout",
-                "flag": None,
-                "level": _detect_level(line),
-                "message": line,
-            }
+            fb = FALLBACK_TS.match(line)
+            if fb:
+                return {
+                    "timestamp": fb.group("ts"),
+                    "stream": "stdout",
+                    "flag": None,
+                    "level": _detect_level(line),
+                    "message": line,
+                }
         return None
 
     def _build_report(self, total: int, parsed: int) -> dict:

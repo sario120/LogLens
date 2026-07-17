@@ -1,6 +1,7 @@
 import re
 from collections import Counter
 from app.parsers.base import BaseParser
+from app.config import SLOW_THRESHOLD
 
 PG_LINE = re.compile(
     r'^(?P<timestamp>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)'
@@ -30,7 +31,7 @@ CKPT_BUFFERS = re.compile(r'wrote\s+(\d+)\s+buffers')
 
 DURATION_EXTRACT = re.compile(r'duration:\s*([\d.]+)\s*ms')
 
-SLOW_QUERY_MS = 1000.0
+SLOW_QUERY_MS = SLOW_THRESHOLD * 1000.0
 
 
 class PostgresParser(BaseParser):

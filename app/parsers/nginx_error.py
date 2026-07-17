@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-from app.parsers.base import BaseParser
+from app.parsers.base import BaseParser, MONTH_MAP
 
 PATTERN = re.compile(
     r'(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) '
@@ -14,12 +14,6 @@ CLIENT_PATTERNS = [
     re.compile(r'client:\s*(?P<client>\S+)'),
     re.compile(r'(?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'),
 ]
-
-MONTH_MAP = {
-    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-    "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
-}
-
 
 def _parse_nginx_time(ts: str) -> str:
     parts = ts.split()
