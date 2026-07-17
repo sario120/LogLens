@@ -7,8 +7,82 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/css/app.css">
 <style>
-:root { --c-bg:#181d2a; --c-surface:#1f2738; --c-surface-raised:#283248; --c-border:#3a4a65; --c-text:#f0f4fa; --c-text-dim:#c8d0e0; --c-text-muted:#9aa8c0; --c-text-faint:#7a8aa8; --c-accent:#60a5fa; --c-accent-mid:#3b82f6; --c-accent-deep:#2563eb; --c-success:#34d399; --c-warning:#fbbf24; --c-danger:#f87171; --c-scrollbar-track:#1f2738; --c-scrollbar-thumb:#3a4a65; --c-input-bg:var(--c-surface-raised); --c-hover:rgba(255,255,255,.06); --c-shadow:rgba(0,0,0,.4); --c-gray-50:#1a2030; --c-gray-100:#24304a; --c-gray-200:#e8ecf2; --c-gray-300:#d4dae6; --c-gray-400:#b8c4d8; --c-gray-500:#96a4bc; --c-gray-600:#7a8aa8; --c-gray-700:#4a5a78; --c-gray-800:#2d3a54; --c-gray-900:#1f2738; }
-html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f9; --c-border:#e2e8f0; --c-text:#0f172a; --c-text-dim:#334155; --c-text-muted:#475569; --c-text-faint:#64748b; --c-accent:#3b82f6; --c-accent-mid:#2563eb; --c-accent-deep:#1d4ed8; --c-success:#16a34a; --c-warning:#d97706; --c-danger:#dc2626; --c-scrollbar-track:#f1f5f9; --c-scrollbar-thumb:#cbd5e1; --c-input-bg:#ffffff; --c-hover:rgba(0,0,0,.04); --c-shadow:rgba(0,0,0,.08); --c-gray-50:#f8fafc; --c-gray-100:#f1f5f9; --c-gray-200:#e2e8f0; --c-gray-300:#cbd5e1; --c-gray-400:#94a3b8; --c-gray-500:#64748b; --c-gray-600:#475569; --c-gray-700:#334155; --c-gray-800:#1e293b; --c-gray-900:#0f172a; }
+:root {
+  /* ─── Light Theme (default) ─── */
+  --c-bg: #f4f6f9;
+  --c-surface: #ffffff;
+  --c-surface-raised: #eef1f5;
+  --c-card: #ffffff;
+  --c-hover: #e8ecf2;
+  --c-active: #dde3eb;
+  --c-text: #1a2332;
+  --c-text-dim: #3d4a5c;
+  --c-text-muted: #6b7a8e;
+  --c-text-inverse: #ffffff;
+  --c-border: #e2e8f0;
+  --c-border-medium: #c8d0dc;
+  --c-border-dark: #9aa8b9;
+  --c-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --c-shadow-dropdown: 0 4px 12px rgba(0,0,0,0.08);
+  --c-shadow-modal: 0 8px 32px rgba(0,0,0,0.12);
+  --c-accent: #60a5fa;
+  --c-accent-mid: #3b82f6;
+  --c-accent-deep: #2563eb;
+  --c-success: #22c55e;
+  --c-warning: #f59e0b;
+  --c-danger: #ef4444;
+  --c-scrollbar-track: #eef1f5;
+  --c-scrollbar-thumb: #c8d0dc;
+  --c-input-bg: #ffffff;
+  --c-gray-50: #f4f6f9;
+  --c-gray-100: #eef1f5;
+  --c-gray-200: #e2e8f0;
+  --c-gray-300: #c8d0dc;
+  --c-gray-400: #9aa8b9;
+  --c-gray-500: #6b7a8e;
+  --c-gray-600: #3d4a5c;
+  --c-gray-700: #2a3650;
+  --c-gray-800: #1a2234;
+  --c-gray-900: #141b2b;
+}
+[data-theme="dark"] {
+  /* ─── Dark Theme ─── */
+  --c-bg: #141b2b;
+  --c-surface: #1a2234;
+  --c-surface-raised: #1f2a40;
+  --c-card: #1e273b;
+  --c-hover: #253049;
+  --c-active: #2c3a55;
+  --c-text: #e8edf5;
+  --c-text-dim: #b0bed9;
+  --c-text-muted: #7e8da8;
+  --c-text-inverse: #0a0e17;
+  --c-border: #2a3650;
+  --c-border-medium: #3a4a6a;
+  --c-border-dark: #4e5f82;
+  --c-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --c-shadow-dropdown: 0 4px 12px rgba(0,0,0,0.4);
+  --c-shadow-modal: 0 8px 32px rgba(0,0,0,0.5);
+  --c-accent: #60a5fa;
+  --c-accent-mid: #3b82f6;
+  --c-accent-deep: #2563eb;
+  --c-success: #22c55e;
+  --c-warning: #f59e0b;
+  --c-danger: #ef4444;
+  --c-scrollbar-track: #1a2234;
+  --c-scrollbar-thumb: #3a4a6a;
+  --c-input-bg: #1e273b;
+  --c-gray-50: #141b2b;
+  --c-gray-100: #1a2234;
+  --c-gray-200: #e8edf5;
+  --c-gray-300: #b0bed9;
+  --c-gray-400: #7e8da8;
+  --c-gray-500: #6b7a8e;
+  --c-gray-600: #4e5f82;
+  --c-gray-700: #3a4a6a;
+  --c-gray-800: #2a3650;
+  --c-gray-900: #141b2b;
+}
 *{scrollbar-width:thin;scrollbar-color:var(--c-scrollbar-thumb) var(--c-scrollbar-track)}
 *::-webkit-scrollbar{width:6px;height:6px}
 *::-webkit-scrollbar-track{background:var(--c-scrollbar-track)}
@@ -46,7 +120,7 @@ html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f
 <script defer src="/static/js/alpine.min.js"></script>
 <script src="/static/js/chart.umd.min.js"></script>
 <script src="/static/js/html2pdf.bundle.min.js"></script>
-<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark');</script>
+<script>if(localStorage.getItem('theme')!=='light')document.documentElement.setAttribute('data-theme','dark');</script>
 </head>
 <body class="min-h-screen font-sans" style="background:var(--c-bg);color:var(--c-text)">
 <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[999] focus:px-4 focus:py-2 focus:bg-accent-500 focus:text-white focus:rounded-lg">Skip to content</a>
@@ -92,7 +166,7 @@ document.addEventListener('alpine:init', () => {
 
   Alpine.store('theme', {
     dark: localStorage.getItem('theme') !== 'light',
-    toggle() { this.dark = !this.dark; localStorage.setItem('theme', this.dark ? 'dark' : 'light'); document.documentElement.classList.toggle('dark', this.dark); }
+    toggle() { this.dark = !this.dark; localStorage.setItem('theme', this.dark ? 'dark' : 'light'); document.documentElement.setAttribute(this.dark ? 'data-theme' : 'data-theme', this.dark ? 'dark' : ''); if (!this.dark) document.documentElement.removeAttribute('data-theme'); }
   });
 
   Alpine.data('analyzer', () => ({
@@ -789,7 +863,7 @@ function renderCharts(report) {
 
 <div x-data="" x-init="$store.auth.checkSession()">
 
-<div x-show="!$store.auth.loggedIn" x-cloak class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" :class="$store.theme.dark ? '' : 'bg-gray-100'">
+<div x-show="!$store.auth.loggedIn" x-cloak class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" style="background:var(--c-bg)">
     <!-- Background decoration -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
       <div class="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-[0.07]" :class="$store.theme.dark ? 'bg-accent-500' : 'bg-blue-400'" style="filter:blur(100px)"></div>
@@ -863,7 +937,7 @@ function renderCharts(report) {
       </div>
 
       <!-- Version tag -->
-      <p class="text-center mt-6 text-[11px]" style="color:var(--c-text-faint)">LogLens v1.0 &mdash; Internal Use Only</p>
+      <p class="text-center mt-6 text-[11px]" style="color:var(--c-text-muted)">LogLens v1.0 &mdash; Internal Use Only</p>
     </div>
   </div>
 </div>
@@ -1752,7 +1826,7 @@ function renderCharts(report) {
     </main>
 
     <footer class="border-t py-4" style="border-color:var(--c-border);padding-bottom:env(safe-area-inset-bottom, 0)">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs" style="color:var(--c-text-faint)">LogLens v1.0 &mdash; Internal Use Only</div>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs" style="color:var(--c-text-muted)">LogLens v1.0 &mdash; Internal Use Only</div>
     </footer>
   </div>
 </div>
