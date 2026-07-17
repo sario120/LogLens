@@ -7,8 +7,8 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/css/app.css">
 <style>
-:root { --c-bg:#0a0e17; --c-surface:#111827; --c-surface-raised:#1a2234; --c-border:#243049; --c-text:#f3f4f6; --c-text-dim:#9ca3af; --c-text-muted:#6b7280; --c-text-faint:#4b5563; --c-accent:#60a5fa; --c-accent-mid:#3b82f6; --c-accent-deep:#2563eb; --c-success:#22c55e; --c-warning:#f59e0b; --c-danger:#ef4444; --c-scrollbar-track:#111827; --c-scrollbar-thumb:#243049; --c-input-bg:var(--c-surface-raised); --c-hover:rgba(255,255,255,.05); --c-shadow:rgba(0,0,0,.4); --c-gray-50:#0f172a; --c-gray-100:#1e293b; --c-gray-200:#e5e7eb; --c-gray-300:#d1d5db; --c-gray-400:#9ca3af; --c-gray-500:#6b7280; --c-gray-600:#4b5563; --c-gray-700:#374151; --c-gray-800:#1f2937; --c-gray-900:#111827; }
-html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f9; --c-border:#e2e8f0; --c-text:#1e293b; --c-text-dim:#475569; --c-text-muted:#64748b; --c-text-faint:#94a3b8; --c-accent:#3b82f6; --c-accent-mid:#2563eb; --c-accent-deep:#1d4ed8; --c-success:#16a34a; --c-warning:#d97706; --c-danger:#dc2626; --c-scrollbar-track:#f1f5f9; --c-scrollbar-thumb:#cbd5e1; --c-input-bg:#ffffff; --c-hover:rgba(0,0,0,.04); --c-shadow:rgba(0,0,0,.08); --c-gray-50:#f8fafc; --c-gray-100:#f1f5f9; --c-gray-200:#334155; --c-gray-300:#475569; --c-gray-400:#64748b; --c-gray-500:#64748b; --c-gray-600:#475569; --c-gray-700:#334155; --c-gray-800:#1e293b; --c-gray-900:#0f172a; }
+:root { --c-bg:#0a0e17; --c-surface:#111827; --c-surface-raised:#1a2234; --c-border:#243049; --c-text:#ffffff; --c-text-dim:#b4bdd0; --c-text-muted:#8892a8; --c-text-faint:#6b7890; --c-accent:#60a5fa; --c-accent-mid:#3b82f6; --c-accent-deep:#2563eb; --c-success:#22c55e; --c-warning:#f59e0b; --c-danger:#ef4444; --c-scrollbar-track:#111827; --c-scrollbar-thumb:#243049; --c-input-bg:var(--c-surface-raised); --c-hover:rgba(255,255,255,.05); --c-shadow:rgba(0,0,0,.4); --c-gray-50:#0f172a; --c-gray-100:#1e293b; --c-gray-200:#e8eaef; --c-gray-300:#d0d5e0; --c-gray-400:#a8b4c4; --c-gray-500:#8490a4; --c-gray-600:#6b7890; --c-gray-700:#374151; --c-gray-800:#1f2937; --c-gray-900:#111827; }
+html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f9; --c-border:#e2e8f0; --c-text:#0f172a; --c-text-dim:#334155; --c-text-muted:#475569; --c-text-faint:#64748b; --c-accent:#3b82f6; --c-accent-mid:#2563eb; --c-accent-deep:#1d4ed8; --c-success:#16a34a; --c-warning:#d97706; --c-danger:#dc2626; --c-scrollbar-track:#f1f5f9; --c-scrollbar-thumb:#cbd5e1; --c-input-bg:#ffffff; --c-hover:rgba(0,0,0,.04); --c-shadow:rgba(0,0,0,.08); --c-gray-50:#f8fafc; --c-gray-100:#f1f5f9; --c-gray-200:#e2e8f0; --c-gray-300:#cbd5e1; --c-gray-400:#94a3b8; --c-gray-500:#64748b; --c-gray-600:#475569; --c-gray-700:#334155; --c-gray-800:#1e293b; --c-gray-900:#0f172a; }
 *{scrollbar-width:thin;scrollbar-color:var(--c-scrollbar-thumb) var(--c-scrollbar-track)}
 *::-webkit-scrollbar{width:6px;height:6px}
 *::-webkit-scrollbar-track{background:var(--c-scrollbar-track)}
@@ -1119,8 +1119,7 @@ function renderCharts(report) {
             </div>
           </template>
 
-          <template x-if="report.upstream_timing && report.log_type === 'nginx_access'">
-            <div class="space-y-4">
+          <div x-show="report.upstream_timing && report.log_type === 'nginx_access'" x-cloak class="space-y-4">
               <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Performance Analysis</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
@@ -1139,10 +1138,9 @@ function renderCharts(report) {
                 </div>
               </div>
             </div>
-          </template>
+          </div>
 
-          <template x-if="report.log_type === 'postgres' && report.charts">
-            <div class="space-y-4">
+          <div x-show="report.log_type === 'postgres' && report.charts" x-cloak class="space-y-4">
               <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Query Performance</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div x-show="report.duration_stats" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
@@ -1209,8 +1207,7 @@ function renderCharts(report) {
                   </div>
                 </div>
               </template>
-            </div>
-          </template>
+          </div>
 
           <template x-if="report.charts">
             <div>
@@ -1492,7 +1489,7 @@ function renderCharts(report) {
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.first_seen || '—'"></td>
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.last_seen || '—'"></td>
-                            <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' ') : '—'"></td>
+                            <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' - ') : '—'"></td>
                           </tr>
                         </template>
                       </tbody>
@@ -1552,7 +1549,7 @@ function renderCharts(report) {
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.avg_duration != null ? row.avg_duration + 's' : '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.p95_duration != null ? row.p95_duration + 's' : '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.max_duration != null ? row.max_duration + 's' : '—'"></td>
-                            <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' ') : '—'"></td>
+                            <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' - ') : '—'"></td>
                           </tr>
                         </template>
                       </tbody>
