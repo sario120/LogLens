@@ -639,79 +639,89 @@ function renderCharts(report) {
   }
 
   if (charts.rt_scatter && charts.rt_scatter.length) {
-    const scatterData = charts.rt_scatter.map(d => ({x: new Date(d.t.replace(' ','T')), y: d.rt}));
-    new Chart(document.getElementById('chart-rt-scatter'), {
-      type: 'scatter',
-      data: {
-        datasets: [{
-          label: 'Response Time',
-          data: scatterData,
-          backgroundColor: scatterData.map(d => d.y > 30 ? dangerC : d.y > 10 ? warningC : accentMid),
-          pointRadius: 3,
-          pointHoverRadius: 5,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        scales: {
-          x: { type: 'timeseries', time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } }, ticks: { color: tickColor }, grid: { color: gridColor } },
-          y: { title: { display: true, text: 'Response Time (s)', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
+    try {
+      const scatterData = charts.rt_scatter.map(d => ({x: new Date(d.t.replace(' ','T')).getTime(), y: d.rt}));
+      new Chart(document.getElementById('chart-rt-scatter'), {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Response Time',
+            data: scatterData,
+            backgroundColor: scatterData.map(d => d.y > 30 ? dangerC : d.y > 10 ? warningC : accentMid),
+            pointRadius: 3,
+            pointHoverRadius: 5,
+          }]
         },
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (ctx) => ctx.parsed.y.toFixed(3) + 's' } }
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: 'linear',
+              ticks: { color: tickColor, callback: (v) => new Date(v).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), maxTicksLimit: 10 },
+              grid: { color: gridColor }
+            },
+            y: { title: { display: true, text: 'Response Time (s)', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => new Date(ctx.parsed.x).toLocaleTimeString() + ' — ' + ctx.parsed.y.toFixed(3) + 's' } }
+          }
         }
-      }
-    });
+      });
+    } catch(e) { console.error('scatter chart:', e); }
   }
 
   if (charts.endpoint_rt && charts.endpoint_rt.length) {
-    new Chart(document.getElementById('chart-endpoint-rt'), {
-      type: 'bar',
-      data: {
-        labels: charts.endpoint_rt.map(d => d.label.length > 30 ? d.label.slice(0, 30) + '…' : d.label),
-        datasets: [
-          { label: 'Avg RT', data: charts.endpoint_rt.map(d => d.avg), backgroundColor: accentMid, borderRadius: 4 },
-          { label: 'P95 RT', data: charts.endpoint_rt.map(d => d.p95), backgroundColor: warningC, borderRadius: 4 },
-          { label: 'Max RT', data: charts.endpoint_rt.map(d => d.max), backgroundColor: dangerC, borderRadius: 4 },
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        scales: {
-          x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } },
-          y: { title: { display: true, text: 'Seconds', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
-        },
-        plugins: { legend: { position: 'top', labels: { color: tickColor, padding: 10, usePointStyle: true, pointStyle: 'rectRounded' } } }
-      }
-    });
-  }
-
-  if (report.upstream_timing) {
-    const ut = report.upstream_timing;
-    const labels = ['RT (Total)', 'URT (Upstream)', 'UHT (Header)', 'UCT (Connect)'];
-    const avgData = [ut.rt?.avg, ut.urt?.avg, ut.uht?.avg, ut.uct?.avg];
-    const p95Data = [ut.rt?.p95, ut.urt?.p95, ut.uht?.p95, ut.uct?.p95];
-    if (avgData.some(v => v != null)) {
-      new Chart(document.getElementById('chart-upstream'), {
+    try {
+      new Chart(document.getElementById('chart-endpoint-rt'), {
         type: 'bar',
         data: {
-          labels: labels,
+          labels: charts.endpoint_rt.map(d => d.label.length > 30 ? d.label.slice(0, 30) + '…' : d.label),
           datasets: [
-            { label: 'Avg', data: avgData, backgroundColor: accentMid, borderRadius: 4 },
-            { label: 'P95', data: p95Data, backgroundColor: warningC, borderRadius: 4 },
+            { label: 'Avg RT', data: charts.endpoint_rt.map(d => d.avg), backgroundColor: accentMid, borderRadius: 4 },
+            { label: 'P95 RT', data: charts.endpoint_rt.map(d => d.p95), backgroundColor: warningC, borderRadius: 4 },
+            { label: 'Max RT', data: charts.endpoint_rt.map(d => d.max), backgroundColor: dangerC, borderRadius: 4 },
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           scales: {
-            x: { ticks: { color: tickColor }, grid: { display: false } },
+            x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } },
             y: { title: { display: true, text: 'Seconds', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
           },
           plugins: { legend: { position: 'top', labels: { color: tickColor, padding: 10, usePointStyle: true, pointStyle: 'rectRounded' } } }
         }
       });
-    }
+    } catch(e) { console.error('endpoint rt chart:', e); }
+  }
+
+  if (report.upstream_timing) {
+    try {
+      const ut = report.upstream_timing;
+      const labels = ['RT (Total)', 'URT (Upstream)', 'UHT (Header)', 'UCT (Connect)'];
+      const avgData = [ut.rt?.avg, ut.urt?.avg, ut.uht?.avg, ut.uct?.avg];
+      const p95Data = [ut.rt?.p95, ut.urt?.p95, ut.uht?.p95, ut.uct?.p95];
+      if (avgData.some(v => v != null)) {
+        new Chart(document.getElementById('chart-upstream'), {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              { label: 'Avg', data: avgData, backgroundColor: accentMid, borderRadius: 4 },
+              { label: 'P95', data: p95Data, backgroundColor: warningC, borderRadius: 4 },
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+              x: { ticks: { color: tickColor }, grid: { display: false } },
+              y: { title: { display: true, text: 'Seconds', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
+            },
+            plugins: { legend: { position: 'top', labels: { color: tickColor, padding: 10, usePointStyle: true, pointStyle: 'rectRounded' } } }
+          }
+        });
+      }
+    } catch(e) { console.error('upstream chart:', e); }
   }
 }
 </script>
