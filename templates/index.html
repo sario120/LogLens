@@ -40,6 +40,8 @@ html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f
 .table-scroll thead th:first-child { background: var(--c-surface-raised); }
 .table-scroll tbody td:first-child { background: var(--c-surface); }
 .table-scroll tbody tr:hover td:first-child { background: var(--c-surface-raised); }
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
+.sr-only:focus,.sr-only.focus\:not-sr-only:focus{position:fixed;width:auto;height:auto;padding:0.5rem 1rem;margin:0.5rem;overflow:visible;clip:auto;white-space:normal;z-index:999;top:0.5rem;left:0.5rem;background:var(--c-accent-mid);color:white;border-radius:0.5rem;font-size:0.875rem;font-weight:600;}
 </style>
 <script defer src="/static/js/alpine.min.js"></script>
 <script src="/static/js/chart.umd.min.js"></script>
