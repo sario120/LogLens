@@ -5,3 +5,8 @@ venv/
 data/
 *.egg-info/
 .pytest_cache/
+node_modules/
+package-lock.json
+package.json
+tailwind.config.js
+static/css/tailwind-input.css

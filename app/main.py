@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
@@ -18,6 +19,20 @@ app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
 TOKEN_TTL = 3600
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+# --- rate limiter: per-IP, sliding window ---
+_auth_attempts: dict[str, list[float]] = defaultdict(list)
+_AUTH_MAX = 3
+_AUTH_WINDOW = 300  # seconds
+
+
+def _rate_limit(ip: str) -> None:
+    now = time.time()
+    _auth_attempts[ip] = [t for t in _auth_attempts[ip] if now - t < _AUTH_WINDOW]
+    if len(_auth_attempts[ip]) >= _AUTH_MAX:
+        raise HTTPException(status_code=429, detail="Too many attempts — try again later")
+    _auth_attempts[ip].append(now)
 
 
 def _sign_token(token_id: str, ts: int) -> str:
@@ -49,6 +64,13 @@ def _require_auth(request: Request) -> str | None:
     return "unauthorized"
 
 
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -56,6 +78,9 @@ async def index(request: Request):
 
 @app.post("/api/auth")
 async def authenticate(request: Request, body: dict):
+    ip = _client_ip(request)
+    _rate_limit(ip)
+
     key = body.get("api_key", "")
     if not hmac.compare_digest(key, API_KEY):
         raise HTTPException(status_code=401, detail="Invalid API key")
@@ -63,14 +88,16 @@ async def authenticate(request: Request, body: dict):
     token_id = hashlib.sha256(f"{ts}:{key}".encode()).hexdigest()[:32]
     token = _sign_token(token_id, ts)
     response = JSONResponse({"token": token, "expires_in": TOKEN_TTL})
-    response.set_cookie("loglens_token", token, httponly=True, samesite="strict", max_age=TOKEN_TTL)
+    secure = request.url.scheme == "https"
+    response.set_cookie("loglens_token", token, httponly=True, samesite="strict", max_age=TOKEN_TTL, secure=secure)
     return response
 
 
 @app.post("/api/logout")
 async def logout(request: Request):
     response = JSONResponse({"ok": True})
-    response.delete_cookie("loglens_token")
+    secure = request.url.scheme == "https"
+    response.delete_cookie("loglens_token", secure=secure)
     return response
 
 
@@ -81,7 +108,16 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     if file:
-        raw_bytes = await file.read()
+        raw_bytes = b""
+        total_read = 0
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            total_read += len(chunk)
+            if total_read > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail="File too large (max 50MB)")
+            raw_bytes += chunk
         raw = raw_bytes.decode("utf-8", errors="replace")
     else:
         body = await request.json()
@@ -91,10 +127,6 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
 
     if not raw.strip():
         raise HTTPException(status_code=400, detail="No log content provided")
-
-    max_size = 50 * 1024 * 1024
-    if len(raw.encode("utf-8")) > max_size:
-        raise HTTPException(status_code=413, detail="File too large (max 50MB)")
 
     skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
     report = parse_and_analyze(raw, log_type, exclude_ips=skip or None)

@@ -1,0 +1,12 @@
+node_modules
+package.json
+package-lock.json
+tailwind.config.js
+static/css/tailwind-input.css
+.git
+.env
+venv
+data
+__pycache__
+*.pyc
+.pytest_cache
