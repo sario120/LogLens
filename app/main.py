@@ -9,7 +9,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app.config import API_KEY, SECRET_KEY
+from app.config import (
+    API_KEY, SECRET_KEY, TOKEN_TTL, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_SIZE,
+    AUTH_MAX_ATTEMPTS, AUTH_WINDOW_SECONDS,
+)
 from app.analyzers.report import parse_and_analyze
 
 app = FastAPI(title="LogLens", version="1.0.0", docs_url=None, redoc_url=None)
@@ -18,19 +21,14 @@ BASE = Path(__file__).resolve().parent.parent
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
-TOKEN_TTL = 3600
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-
 # --- rate limiter: per-IP, sliding window ---
 _auth_attempts: dict[str, list[float]] = defaultdict(list)
-_AUTH_MAX = 3
-_AUTH_WINDOW = 300  # seconds
 
 
 def _rate_limit(ip: str) -> None:
     now = time.time()
-    _auth_attempts[ip] = [t for t in _auth_attempts[ip] if now - t < _AUTH_WINDOW]
-    if len(_auth_attempts[ip]) >= _AUTH_MAX:
+    _auth_attempts[ip] = [t for t in _auth_attempts[ip] if now - t < AUTH_WINDOW_SECONDS]
+    if len(_auth_attempts[ip]) >= AUTH_MAX_ATTEMPTS:
         raise HTTPException(status_code=429, detail="Too many attempts — try again later")
     _auth_attempts[ip].append(now)
 
@@ -101,6 +99,20 @@ async def logout(request: Request):
     return response
 
 
+@app.get("/api/session")
+async def check_session(request: Request):
+    cookie = request.cookies.get("loglens_token")
+    if cookie and _verify_token(cookie):
+        try:
+            _, ts_str, _ = cookie.split(":", 2)
+            ts = int(ts_str)
+            remaining = max(0, TOKEN_TTL - (int(time.time()) - ts))
+        except Exception:
+            remaining = 0
+        return JSONResponse({"authenticated": True, "expires_in": remaining})
+    return JSONResponse({"authenticated": False}, status_code=401)
+
+
 @app.post("/api/analyze")
 async def analyze(request: Request, file: UploadFile = File(None), log_type: str = Form("auto"), exclude_ips: str = Form("")):
     auth_err = _require_auth(request)
@@ -111,7 +123,7 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
         raw_bytes = b""
         total_read = 0
         while True:
-            chunk = await file.read(1024 * 1024)
+            chunk = await file.read(UPLOAD_CHUNK_SIZE)
             if not chunk:
                 break
             total_read += len(chunk)

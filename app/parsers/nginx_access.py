@@ -1,6 +1,7 @@
 import re
 from collections import Counter, defaultdict
 from app.parsers.base import BaseParser
+from app.config import SLOW_THRESHOLD, CRITICAL_THRESHOLD
 
 PATTERN = re.compile(
     r'(?P<ip>\S+) \S+ \S+ '
@@ -18,9 +19,6 @@ MONTH_MAP = {
     "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
     "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
 }
-
-SLOW_THRESHOLD = 10.0
-CRITICAL_THRESHOLD = 30.0
 
 
 def _parse_nginx_time(ts: str) -> str:

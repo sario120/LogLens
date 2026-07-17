@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,35 +7,45 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/css/app.css">
 <style>
-*{scrollbar-width:thin;scrollbar-color:#243049 #111827}
+:root { --c-bg:#0a0e17; --c-surface:#111827; --c-surface-raised:#1a2234; --c-border:#243049; --c-text:#f3f4f6; --c-text-dim:#9ca3af; --c-text-muted:#6b7280; --c-text-faint:#4b5563; --c-accent:#60a5fa; --c-accent-mid:#3b82f6; --c-accent-deep:#2563eb; --c-success:#22c55e; --c-warning:#f59e0b; --c-danger:#ef4444; --c-scrollbar-track:#111827; --c-scrollbar-thumb:#243049; --c-input-bg:var(--c-surface-raised); --c-hover:rgba(255,255,255,.05); --c-shadow:rgba(0,0,0,.4); --c-gray-50:#0f172a; --c-gray-100:#1e293b; --c-gray-200:#e5e7eb; --c-gray-300:#d1d5db; --c-gray-400:#9ca3af; --c-gray-500:#6b7280; --c-gray-600:#4b5563; --c-gray-700:#374151; --c-gray-800:#1f2937; --c-gray-900:#111827; }
+html:not(.dark) { --c-bg:#f8fafc; --c-surface:#ffffff; --c-surface-raised:#f1f5f9; --c-border:#e2e8f0; --c-text:#1e293b; --c-text-dim:#475569; --c-text-muted:#64748b; --c-text-faint:#94a3b8; --c-accent:#3b82f6; --c-accent-mid:#2563eb; --c-accent-deep:#1d4ed8; --c-success:#16a34a; --c-warning:#d97706; --c-danger:#dc2626; --c-scrollbar-track:#f1f5f9; --c-scrollbar-thumb:#cbd5e1; --c-input-bg:#ffffff; --c-hover:rgba(0,0,0,.04); --c-shadow:rgba(0,0,0,.08); --c-gray-50:#f8fafc; --c-gray-100:#f1f5f9; --c-gray-200:#334155; --c-gray-300:#475569; --c-gray-400:#64748b; --c-gray-500:#64748b; --c-gray-600:#475569; --c-gray-700:#334155; --c-gray-800:#1e293b; --c-gray-900:#0f172a; }
+*{scrollbar-width:thin;scrollbar-color:var(--c-scrollbar-thumb) var(--c-scrollbar-track)}
 *::-webkit-scrollbar{width:6px;height:6px}
-*::-webkit-scrollbar-track{background:#111827}
-*::-webkit-scrollbar-thumb{background:#243049;border-radius:3px}
-.drag-active{border-color:#3b82f6!important;background:rgba(59,130,246,.08)!important}
-.spinner{border:3px solid #1a2234;border-top-color:#3b82f6;border-radius:50%;width:40px;height:40px;animation:spin .7s linear infinite}
+*::-webkit-scrollbar-track{background:var(--c-scrollbar-track)}
+*::-webkit-scrollbar-thumb{background:var(--c-scrollbar-thumb);border-radius:3px}
+.drag-active{border-color:var(--c-accent-mid)!important;background:var(--c-hover)!important}
+.spinner{border:3px solid var(--c-surface-raised);border-top-color:var(--c-accent-mid);border-radius:50%;width:40px;height:40px;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .fade-in{animation:fadeIn .3s ease-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.tab-active{background:#243049;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.tab-active{background:var(--c-surface-raised);color:var(--c-text);box-shadow:0 1px 3px var(--c-shadow)}
 [x-cloak]{display:none!important}
 @media print {
-  body { background: #0a0e17 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .bg-dark-800, .bg-dark-700 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: white !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .bg-dark-800, .bg-dark-700, .bg-dark-900 { background: #f9fafb !important; border-color: #e5e7eb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .text-white, .text-gray-200, .text-gray-300 { color: #111 !important; }
+  .text-gray-400, .text-gray-500 { color: #4b5563 !important; }
+  .text-accent-400 { color: #2563eb !important; }
+  .text-success { color: #16a34a !important; }
+  .text-warning { color: #d97706 !important; }
+  .text-danger { color: #dc2626 !important; }
+  .border-dark-600, .border-dark-700 { border-color: #d1d5db !important; }
   button, .spinner { display: none !important; }
   #report-content .rounded-xl { break-inside: avoid; page-break-inside: avoid; }
   canvas[data-chart] { max-width: 100% !important; }
 }
 .table-scroll thead th:first-child,
 .table-scroll tbody td:first-child { position: sticky; left: 0; z-index: 1; }
-.table-scroll thead th:first-child { background: #1a2234; }
-.table-scroll tbody td:first-child { background: #111827; }
-.table-scroll tbody tr:hover td:first-child { background: #1a2234; }
+.table-scroll thead th:first-child { background: var(--c-surface-raised); }
+.table-scroll tbody td:first-child { background: var(--c-surface); }
+.table-scroll tbody tr:hover td:first-child { background: var(--c-surface-raised); }
 </style>
 <script defer src="/static/js/alpine.min.js"></script>
 <script src="/static/js/chart.umd.min.js"></script>
 <script src="/static/js/html2pdf.bundle.min.js"></script>
+<script>if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark');</script>
 </head>
-<body class="bg-dark-900 text-gray-200 min-h-screen font-sans">
+<body class="min-h-screen font-sans" style="background:var(--c-bg);color:var(--c-text)">
 
 <script>
 document.addEventListener('alpine:init', () => {
@@ -53,10 +63,28 @@ document.addEventListener('alpine:init', () => {
       this.token = data.token;
       this.loggedIn = true;
     },
+    async checkSession() {
+      try {
+        const res = await fetch('/api/session');
+        if (res.ok) {
+          const data = await res.json();
+          this.token = data.token || null;
+          this.loggedIn = true;
+          return true;
+        }
+      } catch(e) {}
+      this.loggedIn = false;
+      return false;
+    },
     async logout() {
       try { await fetch('/api/logout', {method:'POST', headers:{'Authorization':'Bearer '+this.token}}); } catch(e) {}
       this.token = null; this.loggedIn = false;
     },
+  });
+
+  Alpine.store('theme', {
+    dark: localStorage.getItem('theme') !== 'light',
+    toggle() { this.dark = !this.dark; localStorage.setItem('theme', this.dark ? 'dark' : 'light'); document.documentElement.classList.toggle('dark', this.dark); }
   });
 
   Alpine.data('analyzer', () => ({
@@ -71,38 +99,63 @@ document.addEventListener('alpine:init', () => {
     dragOver: false,
     pdfExporting: false,
     pdfError: null,
+    toastMessage: null,
+    toastType: 'info',
+    uploadProgress: -1,
+    _showToast(msg, type, duration) { this.toastMessage = msg; this.toastType = type || 'info'; setTimeout(() => { if (this.toastMessage === msg) this.toastMessage = null; }, duration || 4000); },
 
     async analyze() {
       this.view = 'processing';
       this.error = null;
       try {
-        let res;
         if (this.file) {
-          const fd = new FormData();
-          fd.append('file', this.file);
-          fd.append('log_type', this.logType);
-          fd.append('exclude_ips', this.excludeIps);
-          res = await fetch('/api/analyze', {
-            method: 'POST', headers: {'Authorization': 'Bearer ' + Alpine.store('auth').token}, body: fd
-          });
+          await this._uploadFile();
+          return;
         } else if (this.pasteContent.trim()) {
-          res = await fetch('/api/analyze', {
+          const res = await fetch('/api/analyze', {
             method: 'POST',
             headers: {'Authorization': 'Bearer ' + Alpine.store('auth').token, 'Content-Type': 'application/json'},
             body: JSON.stringify({content: this.pasteContent, log_type: this.logType, exclude_ips: this.excludeIps})
           });
+          await this._handleResponse(res);
         } else {
           throw new Error('No content provided');
         }
-        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Analysis failed'); }
-        this.report = await res.json();
-        if (this.report.error) throw new Error(this.report.error);
-        this.view = 'report';
-        this.$nextTick(() => renderCharts(this.report));
       } catch(e) {
-        this.error = e.message;
+        if (e.message === 'SESSION_EXPIRED') { this.error = 'Session expired — please sign in again.'; }
+        else { this.error = e.message; }
         this.view = 'upload';
       }
+    },
+    _uploadFile() {
+      return new Promise((resolve, reject) => {
+        this.uploadProgress = 0;
+        const fd = new FormData();
+        fd.append('file', this.file);
+        fd.append('log_type', this.logType);
+        fd.append('exclude_ips', this.excludeIps);
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/analyze');
+        xhr.setRequestHeader('Authorization', 'Bearer ' + Alpine.store('auth').token);
+        xhr.upload.addEventListener('progress', (e) => { if (e.lengthComputable) this.uploadProgress = Math.round(e.loaded / e.total * 100); });
+        xhr.addEventListener('load', () => {
+          this.uploadProgress = -1;
+          if (xhr.status === 401) { Alpine.store('auth').logout(); reject(new Error('SESSION_EXPIRED')); return; }
+          try { const data = JSON.parse(xhr.responseText); if (xhr.status >= 200 && xhr.status < 300) { this.report = data; if (data.error) { reject(new Error(data.error)); return; } this.view = 'report'; this.$nextTick(() => renderCharts(this.report)); resolve(); } else { reject(new Error(data.detail || 'Analysis failed')); } } catch(_) { reject(new Error('Analysis failed')); }
+        });
+        xhr.addEventListener('error', () => { this.uploadProgress = -1; reject(new Error('Network error')); });
+        xhr.send(fd);
+      });
+    },
+    async _handleResponse(res) {
+      if (!res.ok) {
+        if (res.status === 401) { Alpine.store('auth').logout(); throw new Error('SESSION_EXPIRED'); }
+        const e = await res.json(); throw new Error(e.detail || 'Analysis failed');
+      }
+      this.report = await res.json();
+      if (this.report.error) throw new Error(this.report.error);
+      this.view = 'report';
+      this.$nextTick(() => renderCharts(this.report));
     },
     reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; },
     exportJson() {
@@ -113,7 +166,7 @@ document.addEventListener('alpine:init', () => {
       a.click(); URL.revokeObjectURL(url);
     },
     healthLabel(h) { return h === 'healthy' ? 'Healthy' : h === 'degraded' ? 'Degraded' : h === 'critical' ? 'Critical' : null; },
-    healthColor(h) { return h === 'healthy' ? '#22c55e' : h === 'degraded' ? '#f59e0b' : h === 'critical' ? '#ef4444' : '#9ca3af'; },
+    healthColor(h) { const cs = getComputedStyle(document.documentElement); return h === 'healthy' ? cs.getPropertyValue('--c-success').trim() : h === 'degraded' ? cs.getPropertyValue('--c-warning').trim() : h === 'critical' ? cs.getPropertyValue('--c-danger').trim() : '#9ca3af'; },
     buildExportHeader() {
       const r = this.report;
       const chips = [];
@@ -159,7 +212,7 @@ document.addEventListener('alpine:init', () => {
 
       if (typeof html2pdf === 'undefined') {
         this.pdfExporting = false;
-        this.pdfError = 'PDF library unavailable — using browser print instead.';
+        this._showToast('PDF library unavailable — opening browser print dialog instead.', 'warning', 5000);
         window.print();
         return;
       }
@@ -350,7 +403,7 @@ document.addEventListener('alpine:init', () => {
         pdf.save(opt.filename);
       } catch(e) {
         console.error('PDF export failed:', e);
-        this.pdfError = 'PDF generation failed — using browser print instead.';
+        this._showToast('PDF generation failed — opening browser print dialog instead.', 'warning', 5000);
         window.print();
       } finally {
         if (document.body.contains(exportRoot)) document.body.removeChild(exportRoot);
@@ -372,20 +425,28 @@ document.addEventListener('alpine:init', () => {
 
 <script>
 function renderCharts(report) {
+  const cs = getComputedStyle(document.documentElement);
+  const tickColor = cs.getPropertyValue('--c-text-dim').trim() || '#9ca3af';
+  const gridColor = cs.getPropertyValue('--c-border').trim() || '#243049';
+  const accentMid = cs.getPropertyValue('--c-accent-mid').trim() || '#3b82f6';
+  const successC = cs.getPropertyValue('--c-success').trim() || '#22c55e';
+  const warningC = cs.getPropertyValue('--c-warning').trim() || '#f59e0b';
+  const dangerC = cs.getPropertyValue('--c-danger').trim() || '#ef4444';
+
   const charts = report.charts || {};
   document.querySelectorAll('canvas[data-chart]').forEach(c => {
     const existing = Chart.getChart(c);
     if (existing) existing.destroy();
   });
 
-  const doughnutOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 12 } } } };
+  const doughnutOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: tickColor, padding: 12 } } } };
   const barOpts = (horizontal) => ({
     indexAxis: horizontal ? 'y' : 'x',
     responsive: true,
     maintainAspectRatio: false,
     scales: {
-      x: { ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } },
-      y: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { display: false } }
+      x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+      y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { display: false } }
     },
     plugins: { legend: { display: false } }
   });
@@ -395,7 +456,7 @@ function renderCharts(report) {
       type: 'doughnut',
       data: {
         labels: charts.status_distribution.map(d => d.label),
-        datasets: [{ data: charts.status_distribution.map(d => d.value), backgroundColor: ['#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#6366f1','#14b8a6'], borderWidth: 0 }]
+        datasets: [{ data: charts.status_distribution.map(d => d.value), backgroundColor: [successC, warningC, dangerC,'#8b5cf6','#ec4899','#6366f1','#14b8a6'], borderWidth: 0 }]
       },
       options: doughnutOpts
     });
@@ -406,7 +467,7 @@ function renderCharts(report) {
       type: 'doughnut',
       data: {
         labels: charts.level_distribution.map(d => d.label),
-        datasets: [{ data: charts.level_distribution.map(d => d.value), backgroundColor: ['#22c55e','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#6b7280'], borderWidth: 0 }]
+        datasets: [{ data: charts.level_distribution.map(d => d.value), backgroundColor: [successC, accentMid, warningC, dangerC,'#8b5cf6','#6b7280'], borderWidth: 0 }]
       },
       options: doughnutOpts
     });
@@ -417,7 +478,7 @@ function renderCharts(report) {
       type: 'doughnut',
       data: {
         labels: charts.method_distribution.map(d => d.label),
-        datasets: [{ data: charts.method_distribution.map(d => d.value), backgroundColor: ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#6366f1'], borderWidth: 0 }]
+        datasets: [{ data: charts.method_distribution.map(d => d.value), backgroundColor: [accentMid, successC, warningC, dangerC,'#8b5cf6','#6366f1'], borderWidth: 0 }]
       },
       options: doughnutOpts
     });
@@ -428,7 +489,7 @@ function renderCharts(report) {
       type: 'doughnut',
       data: {
         labels: charts.process_distribution.map(d => d.label),
-        datasets: [{ data: charts.process_distribution.map(d => d.value), backgroundColor: ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#6366f1','#14b8a6','#ec4899'], borderWidth: 0 }]
+        datasets: [{ data: charts.process_distribution.map(d => d.value), backgroundColor: [accentMid, successC, warningC, dangerC,'#8b5cf6','#6366f1','#14b8a6','#ec4899'], borderWidth: 0 }]
       },
       options: doughnutOpts
     });
@@ -439,7 +500,7 @@ function renderCharts(report) {
       type: 'doughnut',
       data: {
         labels: charts.stream_distribution.map(d => d.label),
-        datasets: [{ data: charts.stream_distribution.map(d => d.value), backgroundColor: ['#3b82f6','#ef4444'], borderWidth: 0 }]
+        datasets: [{ data: charts.stream_distribution.map(d => d.value), backgroundColor: [accentMid, dangerC], borderWidth: 0 }]
       },
       options: doughnutOpts
     });
@@ -450,7 +511,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.hourly_timeline.map(d => d.label),
-        datasets: [{ label: 'Count', data: charts.hourly_timeline.map(d => d.value), backgroundColor: '#3b82f6', borderRadius: 4 }]
+        datasets: [{ label: 'Count', data: charts.hourly_timeline.map(d => d.value), backgroundColor: accentMid, borderRadius: 4 }]
       },
       options: barOpts(false)
     });
@@ -472,7 +533,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.top_ips.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.top_ips.slice(0, 10).map(d => d.value), backgroundColor: '#22c55e', borderRadius: 4 }]
+        datasets: [{ data: charts.top_ips.slice(0, 10).map(d => d.value), backgroundColor: successC, borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -483,7 +544,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.top_source_ips.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.top_source_ips.slice(0, 10).map(d => d.value), backgroundColor: '#ef4444', borderRadius: 4 }]
+        datasets: [{ data: charts.top_source_ips.slice(0, 10).map(d => d.value), backgroundColor: dangerC, borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -494,7 +555,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.top_targeted_users.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.top_targeted_users.slice(0, 10).map(d => d.value), backgroundColor: '#f59e0b', borderRadius: 4 }]
+        datasets: [{ data: charts.top_targeted_users.slice(0, 10).map(d => d.value), backgroundColor: warningC, borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -505,7 +566,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.top_clients.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.top_clients.slice(0, 10).map(d => d.value), backgroundColor: '#f59e0b', borderRadius: 4 }]
+        datasets: [{ data: charts.top_clients.slice(0, 10).map(d => d.value), backgroundColor: warningC, borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -527,7 +588,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.top_errors.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.top_errors.slice(0, 10).map(d => d.value), backgroundColor: '#ef4444', borderRadius: 4 }]
+        datasets: [{ data: charts.top_errors.slice(0, 10).map(d => d.value), backgroundColor: dangerC, borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -538,7 +599,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.auth_fail_messages.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.auth_fail_messages.slice(0, 10).map(d => d.value), backgroundColor: '#ef4444', borderRadius: 4 }]
+        datasets: [{ data: charts.auth_fail_messages.slice(0, 10).map(d => d.value), backgroundColor: dangerC, borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -585,7 +646,7 @@ function renderCharts(report) {
         datasets: [{
           label: 'Response Time',
           data: scatterData,
-          backgroundColor: scatterData.map(d => d.y > 30 ? '#ef4444' : d.y > 10 ? '#f59e0b' : '#3b82f6'),
+          backgroundColor: scatterData.map(d => d.y > 30 ? dangerC : d.y > 10 ? warningC : accentMid),
           pointRadius: 3,
           pointHoverRadius: 5,
         }]
@@ -593,8 +654,8 @@ function renderCharts(report) {
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: {
-          x: { type: 'timeseries', time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } }, ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } },
-          y: { title: { display: true, text: 'Response Time (s)', color: '#9ca3af' }, ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } }
+          x: { type: 'timeseries', time: { unit: 'hour', displayFormats: { hour: 'HH:mm' } }, ticks: { color: tickColor }, grid: { color: gridColor } },
+          y: { title: { display: true, text: 'Response Time (s)', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
         },
         plugins: {
           legend: { display: false },
@@ -610,18 +671,18 @@ function renderCharts(report) {
       data: {
         labels: charts.endpoint_rt.map(d => d.label.length > 30 ? d.label.slice(0, 30) + '…' : d.label),
         datasets: [
-          { label: 'Avg RT', data: charts.endpoint_rt.map(d => d.avg), backgroundColor: '#3b82f6', borderRadius: 4 },
-          { label: 'P95 RT', data: charts.endpoint_rt.map(d => d.p95), backgroundColor: '#f59e0b', borderRadius: 4 },
-          { label: 'Max RT', data: charts.endpoint_rt.map(d => d.max), backgroundColor: '#ef4444', borderRadius: 4 },
+          { label: 'Avg RT', data: charts.endpoint_rt.map(d => d.avg), backgroundColor: accentMid, borderRadius: 4 },
+          { label: 'P95 RT', data: charts.endpoint_rt.map(d => d.p95), backgroundColor: warningC, borderRadius: 4 },
+          { label: 'Max RT', data: charts.endpoint_rt.map(d => d.max), backgroundColor: dangerC, borderRadius: 4 },
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: {
-          x: { ticks: { color: '#9ca3af', font: { size: 10 } }, grid: { display: false } },
-          y: { title: { display: true, text: 'Seconds', color: '#9ca3af' }, ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } }
+          x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } },
+          y: { title: { display: true, text: 'Seconds', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
         },
-        plugins: { legend: { position: 'top', labels: { color: '#9ca3af', padding: 10, usePointStyle: true, pointStyle: 'rectRounded' } } }
+        plugins: { legend: { position: 'top', labels: { color: tickColor, padding: 10, usePointStyle: true, pointStyle: 'rectRounded' } } }
       }
     });
   }
@@ -637,17 +698,17 @@ function renderCharts(report) {
         data: {
           labels: labels,
           datasets: [
-            { label: 'Avg', data: avgData, backgroundColor: '#3b82f6', borderRadius: 4 },
-            { label: 'P95', data: p95Data, backgroundColor: '#f59e0b', borderRadius: 4 },
+            { label: 'Avg', data: avgData, backgroundColor: accentMid, borderRadius: 4 },
+            { label: 'P95', data: p95Data, backgroundColor: warningC, borderRadius: 4 },
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           scales: {
-            x: { ticks: { color: '#9ca3af' }, grid: { display: false } },
-            y: { title: { display: true, text: 'Seconds', color: '#9ca3af' }, ticks: { color: '#9ca3af' }, grid: { color: '#1f2937' } }
+            x: { ticks: { color: tickColor }, grid: { display: false } },
+            y: { title: { display: true, text: 'Seconds', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
           },
-          plugins: { legend: { position: 'top', labels: { color: '#9ca3af', padding: 10, usePointStyle: true, pointStyle: 'rectRounded' } } }
+          plugins: { legend: { position: 'top', labels: { color: tickColor, padding: 10, usePointStyle: true, pointStyle: 'rectRounded' } } }
         }
       });
     }
@@ -655,34 +716,83 @@ function renderCharts(report) {
 }
 </script>
 
-<div x-data="">
+<div x-data="" x-init="$store.auth.checkSession()">
 
-<div x-show="!$store.auth.loggedIn" x-cloak class="min-h-screen flex items-center justify-center px-4">
-    <div class="w-full max-w-md">
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-dark-700 border border-dark-600 mb-4">
-          <svg class="w-8 h-8 text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+<div x-show="!$store.auth.loggedIn" x-cloak class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" :class="$store.theme.dark ? '' : 'bg-gray-100'">
+    <!-- Background decoration -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-[0.07]" :class="$store.theme.dark ? 'bg-accent-500' : 'bg-blue-400'" style="filter:blur(100px)"></div>
+      <div class="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-[0.05]" :class="$store.theme.dark ? 'bg-purple-500' : 'bg-indigo-400'" style="filter:blur(100px)"></div>
+      <div x-show="$store.theme.dark" class="absolute inset-0" style="background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.03) 1px, transparent 0);background-size:40px 40px"></div>
+    </div>
+
+    <div class="w-full max-w-sm relative z-10 fade-in">
+      <!-- Logo + Brand -->
+      <div class="text-center mb-10">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-6 relative">
+          <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent-400 to-accent-600 opacity-[0.15]"></div>
+          <div class="absolute inset-0 rounded-2xl border border-accent-500/20"></div>
+          <svg class="w-10 h-10 text-accent-400 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"/>
           </svg>
         </div>
-        <h1 class="text-3xl font-bold text-white tracking-tight">LogLens</h1>
-        <p class="text-gray-400 mt-1 text-sm">Internal Log Analysis Portal</p>
+        <h1 class="text-4xl font-extrabold tracking-tight" :class="$store.theme.dark ? 'text-white' : 'text-gray-900'">LogLens</h1>
+        <p class="mt-2 text-sm" :class="$store.theme.dark ? 'text-gray-500' : 'text-gray-500'">Internal Log Analysis Portal</p>
       </div>
-      <div class="bg-dark-800 rounded-xl border border-dark-600 shadow-xl p-8" x-data="{ apiKey: '', loginError: '', loading: false }">
-        <form @submit.prevent="loginError=''; loading=true; $store.auth.login(apiKey).catch(e => { loginError=e.message; loading=false; })">
-          <label class="block text-sm font-medium text-gray-300 mb-2">API Key</label>
-          <input type="password" x-model="apiKey" required placeholder="Enter your API key"
-            class="w-full px-4 py-3 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm">
-          <p x-show="loginError" x-text="loginError" class="mt-3 text-sm text-danger"></p>
-          <button type="submit" :disabled="loading" class="mt-6 w-full py-3 px-4 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white font-semibold transition text-sm">
-            <span x-show="!loading">Sign In</span>
-            <span x-show="loading" class="inline-flex items-center gap-2">
-              <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-              Authenticating...
-            </span>
-          </button>
-        </form>
+
+      <!-- Login Card -->
+      <div class="rounded-2xl border p-8 shadow-2xl backdrop-blur-sm" :class="$store.theme.dark ? 'bg-dark-800/80 border-dark-600/60 shadow-black/40' : 'bg-white/90 border-gray-200 shadow-gray-200/60'">
+        <div x-data="{ apiKey: '', loginError: '', loading: false, showKey: false }">
+          <form @submit.prevent="loginError=''; loading=true; $store.auth.login(apiKey).catch(e => { loginError=e.message; loading=false; })">
+            <label class="block text-xs font-semibold uppercase tracking-widest mb-3" :class="$store.theme.dark ? 'text-gray-400' : 'text-gray-500'">API Key</label>
+            <div class="relative group">
+              <div class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
+                <svg class="w-4 h-4 transition-colors" :class="$store.theme.dark ? 'text-gray-600 group-focus-within:text-accent-400' : 'text-gray-400 group-focus-within:text-accent-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+              </div>
+              <input :type="showKey ? 'text' : 'password'" x-model="apiKey" required placeholder="Paste your API key"
+                class="w-full pl-10 pr-12 py-3.5 rounded-xl text-sm transition-all duration-200 outline-none placeholder-opacity-60"
+                :class="$store.theme.dark ? 'bg-dark-700 border-dark-600 text-white placeholder-gray-600 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 border' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 border'">
+              <button type="button" @click="showKey = !showKey" class="absolute inset-y-0 right-0 flex items-center pr-3.5 transition-colors" :class="$store.theme.dark ? 'text-gray-600 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'">
+                <svg x-show="!showKey" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <svg x-show="showKey" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+              </button>
+            </div>
+
+            <!-- Error -->
+            <div x-show="loginError" x-cloak x-transition class="mt-4 px-3.5 py-2.5 rounded-lg text-sm flex items-center gap-2" :class="$store.theme.dark ? 'bg-danger/10 text-danger border border-danger/20' : 'bg-red-50 text-red-600 border border-red-200'">
+              <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              <span x-text="loginError"></span>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" :disabled="loading || !apiKey.trim()" class="mt-6 w-full py-3.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 relative overflow-hidden disabled:cursor-not-allowed"
+              :class="(!loading && apiKey.trim()) ? ($store.theme.dark ? 'bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-400 hover:to-accent-500 text-white shadow-lg shadow-accent-500/20 hover:shadow-accent-500/30' : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30') : ($store.theme.dark ? 'bg-dark-700 text-gray-600' : 'bg-gray-200 text-gray-400')">
+              <span x-show="!loading" class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+                Sign In
+              </span>
+              <span x-show="loading" class="flex items-center gap-2">
+                <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                Authenticating...
+              </span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Footer hint -->
+        <div class="mt-6 pt-5 border-t flex items-center justify-center" :class="$store.theme.dark ? 'border-dark-600/60' : 'border-gray-200'">
+          <p class="text-xs" :class="$store.theme.dark ? 'text-gray-600' : 'text-gray-400'">
+            <kbd class="px-1.5 py-0.5 rounded text-[10px] font-mono border" :class="$store.theme.dark ? 'bg-dark-700 border-dark-600 text-gray-500' : 'bg-gray-100 border-gray-200 text-gray-500'">Enter</kbd>
+            to submit
+            <span class="mx-1.5" :class="$store.theme.dark ? 'text-gray-700' : 'text-gray-300'">&middot;</span>
+            <kbd class="px-1.5 py-0.5 rounded text-[10px] font-mono border" :class="$store.theme.dark ? 'bg-dark-700 border-dark-600 text-gray-500' : 'bg-gray-100 border-gray-200 text-gray-500'">Tab</kbd>
+            to toggle visibility
+          </p>
+        </div>
       </div>
+
+      <!-- Version tag -->
+      <p class="text-center mt-6 text-[11px]" :class="$store.theme.dark ? 'text-gray-700' : 'text-gray-400'">LogLens v1.0 &mdash; Internal Use Only</p>
     </div>
   </div>
 </div>
@@ -698,9 +808,15 @@ function renderCharts(report) {
           </div>
           <span class="text-lg font-bold text-white tracking-tight">LogLens</span>
         </div>
-        <button @click="$store.auth.logout(); reset()" class="text-sm text-gray-400 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-dark-700">
-          Logout
-        </button>
+        <div class="flex items-center gap-2">
+          <button @click="$store.theme.toggle()" class="text-sm text-gray-400 hover:text-white transition px-2.5 py-1.5 rounded-lg hover:bg-dark-700" :title="$store.theme.dark ? 'Switch to light mode' : 'Switch to dark mode'">
+            <svg x-show="$store.theme.dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+            <svg x-show="!$store.theme.dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          </button>
+          <button @click="$store.auth.logout(); reset()" class="text-sm text-gray-400 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-dark-700">
+            Logout
+          </button>
+        </div>
       </div>
     </header>
 
@@ -799,7 +915,20 @@ function renderCharts(report) {
 
       <template x-if="view === 'processing'">
         <div class="fade-in flex flex-col items-center justify-center py-32">
-          <div class="spinner mb-6"></div>
+          <template x-if="uploadProgress >= 0">
+            <div class="w-64 mb-4">
+              <div class="flex justify-between text-xs text-gray-400 mb-1.5">
+                <span>Uploading...</span>
+                <span x-text="uploadProgress + '%'"></span>
+              </div>
+              <div class="w-full bg-dark-700 rounded-full h-2 overflow-hidden">
+                <div class="bg-accent-500 h-2 rounded-full transition-all duration-200" :style="'width:' + uploadProgress + '%'"></div>
+              </div>
+            </div>
+          </template>
+          <template x-if="uploadProgress < 0">
+            <div class="spinner mb-6"></div>
+          </template>
           <p class="text-white font-semibold text-lg">Analyzing logs...</p>
           <p class="text-gray-500 text-sm mt-1">This may take a moment for large files.</p>
         </div>
@@ -867,17 +996,23 @@ function renderCharts(report) {
           <div id="report-content" class="space-y-6">
           <template x-if="report.summary">
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              <template x-for="(value, key) in report.summary" :key="key">
+              <template x-for="card in [
+                { show: report.summary.total_requests != null, label: report.log_type === 'nginx_access' ? 'Total Requests' : 'Total Lines', value: formatNum(report.summary.total_requests), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+                { show: report.summary.unique_ips != null, label: 'Unique IPs', value: formatNum(report.summary.unique_ips), icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
+                { show: report.summary.unique_paths != null, label: 'Unique Paths', value: formatNum(report.summary.unique_paths), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
+                { show: report.summary.total_bytes != null, label: 'Total Transfer', value: formatBytes(report.summary.total_bytes), icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' },
+                { show: report.summary.error_rate != null && report.summary.error_rate > 0, label: 'Error Rate', value: formatPct(report.summary.error_rate), icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', cls: report.summary.error_rate > 5 ? 'text-danger' : report.summary.error_rate > 1 ? 'text-warning' : '' },
+                { show: report.summary.count != null && report.log_type !== 'nginx_access', label: 'Log Lines', value: formatNum(report.summary.count), icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+                { show: report.summary.count != null && report.log_type === 'nginx_access', label: 'Requests', value: formatNum(report.summary.count), icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
+                { show: report.summary.p50 != null, label: 'Median RT', value: report.summary.p50 + 's', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+                { show: report.summary.p95 != null, label: 'P95 Response Time', value: report.summary.p95 + 's', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', cls: report.summary.p95 > 30 ? 'text-danger' : report.summary.p95 > 10 ? 'text-warning' : '' },
+                { show: report.summary.p99 != null, label: 'P99 Response Time', value: report.summary.p99 + 's', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', cls: report.summary.p99 > 30 ? 'text-danger' : report.summary.p99 > 10 ? 'text-warning' : '' },
+                { show: report.summary.avg != null, label: 'Avg Response Time', value: report.summary.avg + 's', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+                { show: report.summary.max != null, label: 'Max Response Time', value: report.summary.max + 's', icon: 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6', cls: report.summary.max > 30 ? 'text-danger' : report.summary.max > 10 ? 'text-warning' : '' },
+              ].filter(c => c.show)" :key="card.label">
                 <div class="bg-dark-800 border border-dark-600 rounded-xl p-4">
-                  <p class="text-xs text-gray-500 uppercase tracking-wider mb-1" x-text="key.replace(/_/g, ' ')"></p>
-                  <p class="text-xl font-bold text-white">
-                    <template x-if="typeof value === 'number'">
-                      <span x-text="value.toLocaleString()"></span>
-                    </template>
-                    <template x-if="typeof value !== 'number'">
-                      <span x-text="value != null ? value : '—'"></span>
-                    </template>
-                  </p>
+                  <p class="text-xs text-gray-500 uppercase tracking-wider mb-1" x-text="card.label"></p>
+                  <p class="text-xl font-bold text-white" :class="card.cls || ''" x-text="card.value"></p>
                 </div>
               </template>
             </div>
@@ -1477,6 +1612,12 @@ function renderCharts(report) {
     </footer>
   </div>
 </div>
+</div>
+
+<div x-show="toastMessage" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+  class="fixed bottom-4 right-4 z-50 max-w-sm px-4 py-3 rounded-lg shadow-lg border text-sm flex items-center gap-2"
+  :class="{'bg-accent-500/10 border-accent-500/30 text-accent-400': toastType==='info', 'bg-success/10 border-success/30 text-success': toastType==='success', 'bg-warning/10 border-warning/30 text-warning': toastType==='warning', 'bg-danger/10 border-danger/30 text-danger': toastType==='error'}">
+  <span x-text="toastMessage"></span>
 </div>
 
 </body>

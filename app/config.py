@@ -1,10 +1,29 @@
 import os
 import sys
 
+# --- Auth ---
 API_KEY = os.getenv("LOGS_PORTAL_API_KEY", "changeme")
 SECRET_KEY = os.getenv("LOGS_PORTAL_SECRET", "internal-portal-secret-change-in-prod")
+
+# --- Server ---
 HOST = os.getenv("LOGS_PORTAL_HOST", "0.0.0.0")
 PORT = int(os.getenv("LOGS_PORTAL_PORT", "8600"))
+WORKERS = int(os.getenv("LOGS_PORTAL_WORKERS", "2"))
+
+# --- Rate limiting ---
+AUTH_MAX_ATTEMPTS = int(os.getenv("LOGS_PORTAL_AUTH_MAX_ATTEMPTS", "3"))
+AUTH_WINDOW_SECONDS = int(os.getenv("LOGS_PORTAL_AUTH_WINDOW_SECONDS", "300"))
+
+# --- Upload ---
+MAX_UPLOAD_BYTES = int(os.getenv("LOGS_PORTAL_MAX_UPLOAD_MB", "50")) * 1024 * 1024
+UPLOAD_CHUNK_SIZE = int(os.getenv("LOGS_PORTAL_UPLOAD_CHUNK_KB", "1024")) * 1024
+
+# --- Token ---
+TOKEN_TTL = int(os.getenv("LOGS_PORTAL_TOKEN_TTL", "3600"))
+
+# --- Performance thresholds (seconds) ---
+SLOW_THRESHOLD = float(os.getenv("LOGS_PORTAL_SLOW_THRESHOLD", "10.0"))
+CRITICAL_THRESHOLD = float(os.getenv("LOGS_PORTAL_CRITICAL_THRESHOLD", "30.0"))
 
 _INSECURE_DEFAULTS = {
     "LOGS_PORTAL_API_KEY": "changeme",

@@ -14,4 +14,5 @@ EXPOSE 8600
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD curl -f http://localhost:8600/ || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8600", "--workers", "2"]
+ENV LOGS_PORTAL_WORKERS=2
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8600 --workers ${LOGS_PORTAL_WORKERS}"]
