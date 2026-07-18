@@ -1,5 +1,5 @@
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from app.parsers.base import BaseParser
 from app.config import SLOW_THRESHOLD
 
@@ -33,10 +33,79 @@ DURATION_EXTRACT = re.compile(r'duration:\s*([\d.]+)\s*ms')
 
 SLOW_QUERY_MS = SLOW_THRESHOLD * 1000.0
 
+# --- Advanced PG patterns ---
+LOCK_PATTERN = re.compile(
+    r'(?:deadlock detected|lock (?:timeout|wait)|waiting for (?:Lock|relation)|'
+    r'lock .* on (?:relation|tuple)|process \d+ conflicts with process \d+|'
+    r'could not (?:serialize|obtain) lock)',
+    re.I,
+)
+
+AUTOVACUUM_PATTERN = re.compile(
+    r'autovacuum(?:\s+launcher)?(?:\s+worker)?(?:\s+\d+)?:?\s+(?:'
+    r'for table\s+"?(?P<table>\S+?)"?\s*:?\s*(?P<av_info>.+)?|'
+    r'(?:Launching|started|completed|removed)\s+.+)',
+    re.I,
+)
+
+AUTOVACUUM_TABLE = re.compile(
+    r'autovacuum(?:\s+launcher)?(?:\s+worker)?(?:\s+\d+)?:?\s+for table\s+"?(?P<table>[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)?)"?\s*:?\s*(?P<info>.*)',
+    re.I,
+)
+
+REPLICATION_PATTERN = re.compile(
+    r'(?:replication (?:slot|origin|lag|timeout|checkpoint)|'
+    r'wal (?:sender|receiver|segment|archive|level)|'
+    r'standby (?:mode|connected|sync)|'
+    r'remote (?:write|flush|apply|replay))',
+    re.I,
+)
+
+REPLICATION_LAG_VALUE = re.compile(
+    r'(?:replication lag|lag)\s*[=:]\s*(?P<value>[\d.]+)\s*(?P<unit>ms|s|min|m|h|bytes|kB|MB|GB)?',
+    re.I,
+)
+
+PG_LOCK_PATTERN = re.compile(
+    r'(?:Lock|lock)\s+(?:type|mode)?\s*[=:]\s*(\S+)',
+    re.I,
+)
+
+DEAD_TUPLES_PATTERN = re.compile(
+    r'(\d+)\s+dead\s+tuples',
+    re.I,
+)
+
+LIVE_TUPLES_PATTERN = re.compile(
+    r'(\d+)\s+live\s+tuples',
+    re.I,
+)
+
+
+def _normalize_query(stmt: str) -> str:
+    """Replace literals in SQL with ? placeholders for grouping."""
+    s = stmt.strip()
+    # String literals
+    s = re.sub(r"'[^']*'", "'?'", s)
+    # Numeric literals
+    s = re.sub(r'\b\d+\.?\d*\b', '?', s)
+    # IN lists: IN (?,?,?,...) → IN (?)
+    s = re.sub(r'IN\s*\(\?(?:,\s*\?)*\)', 'IN (?)', s, flags=re.I)
+    # Multiple consecutive ? from collapsed values
+    s = re.sub(r'(\?\s*,\s*){2,}', '?, ', s)
+    return s.strip()
+
 
 class PostgresParser(BaseParser):
     name = "postgres"
     description = "PostgreSQL logs (stderr format with timestamps)"
+
+    def __init__(self):
+        super().__init__()
+        self._lock_events = []
+        self._autovacuum_events = []
+        self._replication_events = []
+        self._normalized_queries = Counter()
 
     def _parse_line(self, line: str) -> dict | None:
         if NON_PG_LINE.match(line):
@@ -50,6 +119,7 @@ class PostgresParser(BaseParser):
                 "stmt_type": None,
                 "duration_ms": None,
                 "slow": False,
+                "normalized": None,
             }
 
         m = PG_LINE.match(line)
@@ -64,6 +134,7 @@ class PostgresParser(BaseParser):
         table = None
         stmt_type = None
         duration_ms = None
+        normalized = None
 
         dm = DURATION_EXTRACT.search(message)
         if dm:
@@ -75,6 +146,7 @@ class PostgresParser(BaseParser):
                 stmt_type = sm.group(1).upper() if sm else "OTHER"
                 table_m = TABLE_EXTRACT.search(raw_stmt)
                 table = table_m.group(1) if table_m else None
+                normalized = _normalize_query(raw_stmt)
                 event = "statement"
             else:
                 event = "duration"
@@ -84,7 +156,42 @@ class PostgresParser(BaseParser):
             stmt_type = sm.group(1).upper() if sm else "OTHER"
             table_m = TABLE_EXTRACT.search(raw_stmt)
             table = table_m.group(1) if table_m else None
+            normalized = _normalize_query(raw_stmt)
             event = "statement"
+        elif LOCK_PATTERN.search(message):
+            event = "lock"
+            self._lock_events.append({
+                "timestamp": d["timestamp"].replace(" ", "T", 1),
+                "pid": int(d["pid"]),
+                "level": level,
+                "message": message[:300],
+            })
+        elif AUTOVACUUM_TABLE.search(message):
+            event = "autovacuum"
+            av_m = AUTOVACUUM_TABLE.search(message)
+            av_table = av_m.group("table") if av_m else None
+            av_info = av_m.group("info") if av_m else ""
+            dead_match = DEAD_TUPLES_PATTERN.search(av_info) if av_info else None
+            live_match = LIVE_TUPLES_PATTERN.search(av_info) if av_info else None
+            self._autovacuum_events.append({
+                "timestamp": d["timestamp"].replace(" ", "T", 1),
+                "pid": int(d["pid"]),
+                "table": av_table,
+                "dead_tuples": int(dead_match.group(1)) if dead_match else None,
+                "live_tuples": int(live_match.group(1)) if live_match else None,
+                "message": message[:300],
+            })
+        elif REPLICATION_PATTERN.search(message):
+            event = "replication"
+            lag_m = REPLICATION_LAG_VALUE.search(message)
+            self._replication_events.append({
+                "timestamp": d["timestamp"].replace(" ", "T", 1),
+                "pid": int(d["pid"]),
+                "level": level,
+                "message": message[:300],
+                "lag_value": lag_m.group("value") if lag_m else None,
+                "lag_unit": lag_m.group("unit") if lag_m else None,
+            })
         elif message.startswith("checkpoint"):
             event = "checkpoint"
         elif "database system is ready" in message:
@@ -110,6 +217,7 @@ class PostgresParser(BaseParser):
             "stmt_type": stmt_type,
             "duration_ms": duration_ms,
             "slow": slow,
+            "normalized": normalized,
         }
 
     def _hour_key(self, ts: str) -> str:
@@ -216,6 +324,77 @@ class PostgresParser(BaseParser):
             if e.get("table") and e.get("duration_ms") is not None:
                 top_tables_by_duration[e["table"]] += e["duration_ms"]
 
+        # Query normalization — group by normalized form
+        norm_counter = Counter()
+        norm_examples = {}
+        for e in statement_entries:
+            if e.get("normalized"):
+                nkey = e["normalized"][:200]
+                norm_counter[nkey] += 1
+                if nkey not in norm_examples:
+                    norm_examples[nkey] = {
+                        "normalized": nkey,
+                        "count": 0,
+                        "avg_duration_ms": 0,
+                        "total_duration_ms": 0,
+                        "sample_table": e.get("table"),
+                        "sample_stmt_type": e.get("stmt_type"),
+                    }
+                norm_examples[nkey]["count"] += 1
+                if e.get("duration_ms") is not None:
+                    norm_examples[nkey]["total_duration_ms"] += e["duration_ms"]
+        normalized_queries = []
+        for nkey, data in norm_counter.most_common(30):
+            ex = norm_examples[nkey]
+            if ex["count"] > 0 and ex["total_duration_ms"] > 0:
+                ex["avg_duration_ms"] = round(ex["total_duration_ms"] / ex["count"], 2)
+            del ex["total_duration_ms"]
+            normalized_queries.append(ex)
+
+        # Lock analysis
+        lock_events = self._lock_events
+        lock_by_type = Counter()
+        lock_by_hour = Counter()
+        for le in lock_events:
+            msg_lower = le["message"].lower()
+            if "deadlock" in msg_lower:
+                lock_by_type["deadlock"] += 1
+            elif "timeout" in msg_lower:
+                lock_by_type["timeout"] += 1
+            elif "waiting" in msg_lower:
+                lock_by_type["wait"] += 1
+            else:
+                lock_by_type["other"] += 1
+            lock_by_hour[self._hour_key(le["timestamp"])] += 1
+
+        # Autovacuum analysis
+        av_events = self._autovacuum_events
+        av_by_table = Counter(e["table"] for e in av_events if e.get("table"))
+        av_by_hour = Counter()
+        for e in av_events:
+            av_by_hour[self._hour_key(e["timestamp"])] += 1
+
+        # Replication analysis
+        rep_events = self._replication_events
+        rep_by_hour = Counter()
+        lag_values = []
+        for e in rep_events:
+            rep_by_hour[self._hour_key(e["timestamp"])] += 1
+            if e.get("lag_value"):
+                try:
+                    lag_values.append(float(e["lag_value"]))
+                except (ValueError, TypeError):
+                    pass
+
+        rep_stats = None
+        if lag_values:
+            rep_stats = {
+                "count": len(lag_values),
+                "avg": round(sum(lag_values) / len(lag_values), 2),
+                "max": round(max(lag_values), 2),
+                "min": round(min(lag_values), 2),
+            }
+
         return {
             "log_type": "postgres",
             "log_type_label": "PostgreSQL Log",
@@ -224,6 +403,8 @@ class PostgresParser(BaseParser):
             "parse_errors": self.errors,
             "processing_ms": self.processing_ms,
             "time_range": {"start": self.start_time, "end": self.end_time},
+            "_entries": self.entries,
+            "_line_numbers": self._line_numbers,
             "summary": {
                 "total_entries": parsed,
                 "statements": event_counter.get("statement", 0),
@@ -236,6 +417,9 @@ class PostgresParser(BaseParser):
                 "tx_ops": tx_stmts,
                 "unique_tables": len(unique_tables),
                 "unique_pids": len(unique_pids),
+                "lock_events": len(lock_events),
+                "autovacuum_events": len(av_events),
+                "replication_events": len(rep_events),
             },
             "charts": {
                 "level_distribution": [
@@ -279,6 +463,26 @@ class PostgresParser(BaseParser):
                     {"label": h, "value": c}
                     for h, c in sorted(hourly_ckpt.items())
                 ],
+                "lock_by_type": [
+                    {"label": k, "value": v}
+                    for k, v in lock_by_type.most_common()
+                ],
+                "lock_by_hour": [
+                    {"label": h, "value": c}
+                    for h, c in sorted(lock_by_hour.items())
+                ],
+                "autovacuum_by_table": [
+                    {"label": (t or "unknown")[:60], "value": v}
+                    for t, v in av_by_table.most_common(15)
+                ],
+                "autovacuum_by_hour": [
+                    {"label": h, "value": c}
+                    for h, c in sorted(av_by_hour.items())
+                ],
+                "replication_by_hour": [
+                    {"label": h, "value": c}
+                    for h, c in sorted(rep_by_hour.items())
+                ],
             },
             "checkpoint_metrics": ckpt_metrics,
             "duration_stats": duration_stats,
@@ -293,6 +497,50 @@ class PostgresParser(BaseParser):
                 }
                 for e in slow_queries[:50]
             ],
+            "normalized_queries": normalized_queries,
+            "lock_events": [
+                {
+                    "timestamp": le["timestamp"],
+                    "pid": le["pid"],
+                    "level": le["level"],
+                    "message": le["message"][:200],
+                }
+                for le in lock_events[:50]
+            ],
+            "lock_summary": {
+                "total": len(lock_events),
+                "by_type": dict(lock_by_type),
+            },
+            "autovacuum_events": [
+                {
+                    "timestamp": e["timestamp"],
+                    "pid": e["pid"],
+                    "table": e.get("table"),
+                    "dead_tuples": e.get("dead_tuples"),
+                    "live_tuples": e.get("live_tuples"),
+                    "message": e["message"][:200],
+                }
+                for e in av_events[:50]
+            ],
+            "autovacuum_summary": {
+                "total": len(av_events),
+                "by_table": dict(av_by_table.most_common(20)),
+            },
+            "replication_events": [
+                {
+                    "timestamp": e["timestamp"],
+                    "pid": e["pid"],
+                    "level": e["level"],
+                    "message": e["message"][:200],
+                    "lag_value": e.get("lag_value"),
+                    "lag_unit": e.get("lag_unit"),
+                }
+                for e in rep_events[:50]
+            ],
+            "replication_summary": {
+                "total": len(rep_events),
+                "lag_stats": rep_stats,
+            },
             "tables": {
                 "levels": [
                     {"level": k, "count": v, "pct": round(v / parsed * 100, 2) if parsed else 0}
@@ -307,7 +555,7 @@ class PostgresParser(BaseParser):
                     for t, c in table_counter.most_common(20)
                 ],
                 "error_samples": [
-                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200]}
+                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200], "_entry_idx": self.entries.index(e)}
                     for e in error_entries[:25]
                 ],
                 "warning_samples": [

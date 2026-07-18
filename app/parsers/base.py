@@ -17,29 +17,36 @@ class BaseParser(ABC):
         self.start_time = None
         self.end_time = None
         self.processing_ms = 0
+        self._line_numbers = []
+        self._raw_lines = []
 
     def parse(self, raw: str, exclude_ips: list[str] | None = None) -> dict:
         t0 = time.time()
         lines = raw.strip().splitlines()
+        self._raw_lines = lines
         total = len(lines)
         parsed = 0
         self.entries = []
+        self._line_numbers = []
         self.errors = 0
 
-        for line in lines:
+        for i, line in enumerate(lines):
             line = line.strip()
             if not line:
                 continue
             entry = self._parse_line(line)
             if entry:
                 self.entries.append(entry)
+                self._line_numbers.append(i)
                 parsed += 1
             else:
                 self.errors += 1
 
         if exclude_ips:
             skip = set(exclude_ips)
-            self.entries = [e for e in self.entries if self._get_ip(e) not in skip]
+            filtered = [(e, ln) for e, ln in zip(self.entries, self._line_numbers) if self._get_ip(e) not in skip]
+            self.entries = [e for e, _ in filtered]
+            self._line_numbers = [ln for _, ln in filtered]
             parsed = len(self.entries)
 
         self.processing_ms = round((time.time() - t0) * 1000, 1)
@@ -66,6 +73,21 @@ class BaseParser(ABC):
         if timestamps:
             self.start_time = min(timestamps)
             self.end_time = max(timestamps)
+
+    def get_context(self, entry_idx: int, before: int = 3, after: int = 3) -> dict:
+        if entry_idx < 0 or entry_idx >= len(self._line_numbers):
+            return {"error": "invalid entry index"}
+        center = self._line_numbers[entry_idx]
+        start = max(0, center - before)
+        end = min(len(self._raw_lines), center + after + 1)
+        context_lines = []
+        for i in range(start, end):
+            context_lines.append({
+                "line_num": i,
+                "content": self._raw_lines[i] if i < len(self._raw_lines) else "",
+                "is_match": i == center,
+            })
+        return {"center_line": center, "context": context_lines}
 
     @staticmethod
     def _hour_key(ts: str) -> str:

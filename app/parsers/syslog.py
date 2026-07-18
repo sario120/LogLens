@@ -80,6 +80,8 @@ class SyslogParser(BaseParser):
             "parse_errors": self.errors,
             "processing_ms": self.processing_ms,
             "time_range": {"start": self.start_time, "end": self.end_time},
+            "_entries": self.entries,
+            "_line_numbers": self._line_numbers,
             "summary": {
                 "total_entries": parsed,
                 "unique_processes": len(process_counter),
@@ -105,7 +107,7 @@ class SyslogParser(BaseParser):
                 ],
                 "auth_failures_detail": [
                     {"timestamp": e["timestamp"], "source_ip": e.get("source_ip", "-"),
-                     "user": e.get("user", "-"), "message": e["message"][:150]}
+                     "user": e.get("user", "-"), "message": e["message"][:150], "_entry_idx": self.entries.index(e)}
                     for e in auth_failures[:30]
                 ],
                 "top_source_ips": [

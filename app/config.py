@@ -1,5 +1,10 @@
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # --- Auth ---
 API_KEY = os.getenv("LOGS_PORTAL_API_KEY", "changeme")
@@ -24,6 +29,9 @@ TOKEN_TTL = int(os.getenv("LOGS_PORTAL_TOKEN_TTL", "3600"))
 # --- Performance thresholds (seconds) ---
 SLOW_THRESHOLD = float(os.getenv("LOGS_PORTAL_SLOW_THRESHOLD", "10.0"))
 CRITICAL_THRESHOLD = float(os.getenv("LOGS_PORTAL_CRITICAL_THRESHOLD", "30.0"))
+
+# --- Auto-detection ---
+DETECT_SAMPLE_SIZE = int(os.getenv("LOGS_PORTAL_DETECT_SAMPLE_SIZE", "50"))
 
 _INSECURE_DEFAULTS = {
     "LOGS_PORTAL_API_KEY": "changeme",

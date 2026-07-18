@@ -6,6 +6,7 @@
 <title>LogLens</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/css/app.css">
+<script src="/static/js/storage.js"></script>
 <style>
 :root {
   /* ─── Light Theme (softer) ─── */
@@ -25,9 +26,9 @@
   --c-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   --c-shadow-dropdown: 0 4px 12px rgba(0,0,0,0.08);
   --c-shadow-modal: 0 8px 32px rgba(0,0,0,0.10);
-  --c-accent: #60a5fa;
-  --c-accent-mid: #3b82f6;
-  --c-accent-deep: #2563eb;
+  --c-accent: #e8c84a;
+  --c-accent-mid: #d4af37;
+  --c-accent-deep: #b8941e;
   --c-success: #22c55e;
   --c-warning: #f59e0b;
   --c-danger: #ef4444;
@@ -47,15 +48,15 @@
 }
 [data-theme="dark"] {
   /* ─── Dark Theme (softer, warmer) ─── */
-  --c-bg: #1a1f2e;
-  --c-surface: #222838;
-  --c-surface-raised: #2a3145;
-  --c-card: #1e2436;
-  --c-hover: #2a3145;
-  --c-active: #323b52;
-  --c-text: #e8edf5;
-  --c-text-dim: #b0bed9;
-  --c-text-muted: #7e8da8;
+  --c-bg: #082f49;
+  --c-surface: rgba(8,47,73,0.55);
+  --c-surface-raised: rgba(8,47,73,0.7);
+  --c-card: rgba(8,47,73,0.45);
+  --c-hover: rgba(8,47,73,0.8);
+  --c-active: rgba(212,175,55,0.12);
+  --c-text: #f1f5f9;
+  --c-text-dim: #cbd5e1;
+  --c-text-muted: #94a3b8;
   --c-text-inverse: #0a0e17;
   --c-border: #2a3650;
   --c-border-medium: #3a4a6a;
@@ -63,9 +64,9 @@
   --c-shadow: 0 1px 3px rgba(0,0,0,0.3);
   --c-shadow-dropdown: 0 4px 12px rgba(0,0,0,0.4);
   --c-shadow-modal: 0 8px 32px rgba(0,0,0,0.5);
-  --c-accent: #60a5fa;
-  --c-accent-mid: #3b82f6;
-  --c-accent-deep: #2563eb;
+  --c-accent: #e8c84a;
+  --c-accent-mid: #d4af37;
+  --c-accent-deep: #b8941e;
   --c-success: #22c55e;
   --c-warning: #f59e0b;
   --c-danger: #ef4444;
@@ -76,10 +77,10 @@
   --c-gray-100: #222838;
   --c-gray-200: #e8edf5;
   --c-gray-300: #b0bed9;
-  --c-gray-400: #7e8da8;
-  --c-gray-500: #6b7a8e;
-  --c-gray-600: #4e5f82;
-  --c-gray-700: #3a4a6a;
+  --c-gray-400: #94a3b8;
+  --c-gray-500: #94a3b8;
+  --c-gray-600: #94a3b8;
+  --c-gray-700: #64748b;
   --c-gray-800: #2a3650;
   --c-gray-900: #1a1f2e;
 }
@@ -92,7 +93,15 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 .fade-in{animation:fadeIn .3s ease-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.tab-active{background:var(--c-surface-raised);color:var(--c-text);box-shadow:0 1px 3px var(--c-shadow)}
+.tab-active{background:rgba(212,175,55,0.15);color:var(--c-accent);box-shadow:0 1px 3px var(--c-shadow)}
+[data-theme="dark"] thead tr{background:rgba(212,175,55,0.06)}
+[data-theme="dark"] thead th{color:var(--c-accent) !important;font-weight:600}
+#report-content .space-y-6 > div > .bg-dark-800{background:var(--c-surface);border-color:var(--c-border)}
+[data-theme="dark"] th.sortable{cursor:pointer;user-select:none;transition:color .15s}
+[data-theme="dark"] th.sortable:hover{color:var(--c-accent)}
+.sort-icon{font-size:10px;margin-left:4px;opacity:0.6}
+.clickable{cursor:pointer;transition:color .15s}
+.clickable:hover{color:var(--c-accent) !important}
 [x-cloak]{display:none!important}
 @media print {
   body { background: white !important; color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -183,6 +192,29 @@ document.addEventListener('alpine:init', () => {
     toastMessage: null,
     toastType: 'info',
     uploadProgress: -1,
+    _draftSaveTimer: null,
+    historyReports: [],
+    historyQuery: '',
+    historyFilterType: 'all',
+    reportLabel: '',
+    searchQuery: '',
+    tableFilters: {},
+    sortKey: {},
+    sortDir: {},
+    expandedRow: {},
+    batchMode: 'single',
+    batchFiles: [],
+    batchReports: [],
+    batchLabel: '',
+    batchLoading: false,
+    batchError: null,
+    correlationData: null,
+    correlationLoading: false,
+    correlationError: null,
+    contextPanel: null,
+    contextLoading: false,
+    contextError: null,
+    init() { this.restoreDraft(); },
     _showToast(msg, type, duration) { this.toastMessage = msg; this.toastType = type || 'info'; setTimeout(() => { if (this.toastMessage === msg) this.toastMessage = null; }, duration || 4000); },
 
     async analyze() {
@@ -223,7 +255,7 @@ document.addEventListener('alpine:init', () => {
         xhr.addEventListener('load', () => {
           this.uploadProgress = -1;
           if (xhr.status === 401) { Alpine.store('auth').logout(); reject(new Error('SESSION_EXPIRED')); return; }
-          try { const data = JSON.parse(xhr.responseText); if (xhr.status >= 200 && xhr.status < 300) { this.report = data; if (data.error) { reject(new Error(data.error)); return; } this.view = 'report'; this.$nextTick(() => renderCharts(this.report)); resolve(); } else { reject(new Error(data.detail || 'Analysis failed')); } } catch(_) { reject(new Error('Analysis failed')); }
+          try { const data = JSON.parse(xhr.responseText); if (xhr.status >= 200 && xhr.status < 300) { this.report = data; if (data.error) { reject(new Error(data.error)); return; } this.view = 'report'; this.$nextTick(() => renderCharts(this.report)); this.saveToHistory(); LogLensDB.clearDraft(); resolve(); } else { reject(new Error(data.detail || 'Analysis failed')); } } catch(_) { reject(new Error('Analysis failed')); }
         });
         xhr.addEventListener('error', () => { this.uploadProgress = -1; reject(new Error('Network error')); });
         xhr.send(fd);
@@ -240,8 +272,141 @@ document.addEventListener('alpine:init', () => {
       if (this.report.error) throw new Error(this.report.error);
       this.view = 'report';
       this.$nextTick(() => renderCharts(this.report));
+      this.saveToHistory();
+      LogLensDB.clearDraft();
     },
-    reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; this.$nextTick(() => { const el = document.getElementById('main-content'); if (el) el.focus(); }); },
+    reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; this.reportLabel = ''; this.searchQuery = ''; this.tableFilters = {}; this.sortKey = {}; this.sortDir = {}; this.expandedRow = {}; this.$nextTick(() => { const el = document.getElementById('main-content'); if (el) el.focus(); }); },
+
+    async saveToHistory() {
+      if (!this.report) return;
+      try {
+        const id = await LogLensDB.saveReport(this.report, this.reportLabel);
+        this._showToast('Report saved to history', 'success');
+        LogLensDB.clearDraft();
+      } catch(e) { console.error('save history:', e); }
+    },
+
+    async showHistory() {
+      this.view = 'history';
+      await this.loadHistory();
+    },
+
+    async loadHistory() {
+      try {
+        this.historyReports = await LogLensDB.listReports(this.historyQuery, this.historyFilterType);
+      } catch(e) { console.error('load history:', e); this.historyReports = []; }
+    },
+
+    async openHistoryReport(rec) {
+      try {
+        const full = await LogLensDB.getReport(rec.id);
+        if (full && full.full_report) {
+          this.report = full.full_report;
+          this.reportLabel = full.label || '';
+          this.searchQuery = '';
+          this.tableFilters = {};
+          this.sortKey = {};
+          this.sortDir = {};
+          this.expandedRow = {};
+          this.view = 'report';
+          this.$nextTick(() => renderCharts(this.report));
+        }
+      } catch(e) { console.error('open history:', e); }
+    },
+
+    async deleteHistoryReport(id) {
+      if (!confirm('Delete this report from history?')) return;
+      try {
+        await LogLensDB.deleteReport(id);
+        await this.loadHistory();
+        this._showToast('Report deleted', 'success');
+      } catch(e) { console.error('delete history:', e); }
+    },
+
+    async updateHistoryLabel(id, label) {
+      try { await LogLensDB.updateReportLabel(id, label); } catch(e) { console.error(e); }
+    },
+
+    _autoSaveDraft() {
+      clearTimeout(this._draftSaveTimer);
+      this._draftSaveTimer = setTimeout(() => {
+        if (this.pasteContent.trim()) {
+          LogLensDB.saveDraft({ content: this.pasteContent, logType: this.logType, excludeIps: this.excludeIps });
+        }
+      }, 1500);
+    },
+
+    async restoreDraft() {
+      try {
+        const draft = await LogLensDB.getDraft();
+        if (draft) {
+          this.pasteContent = draft.content || '';
+          this.logType = draft.logType || 'auto';
+          this.excludeIps = draft.excludeIps || '';
+          if (this.pasteContent.trim()) this._showToast('Draft restored', 'info', 3000);
+        }
+      } catch(e) {}
+    },
+
+    filterTable(table, rows) {
+      if (!rows || !rows.length) return rows;
+      const filters = this.tableFilters[table] || {};
+      const q = this.searchQuery.toLowerCase();
+      let result = rows;
+      Object.keys(filters).forEach(col => {
+        const f = (filters[col] || '').toLowerCase();
+        if (!f) return;
+        result = result.filter(r => String(r[col] || '').toLowerCase().includes(f));
+      });
+      if (q) {
+        result = result.filter(r => Object.values(r).some(v => String(v || '').toLowerCase().includes(q)));
+      }
+      return result;
+    },
+
+    sortTable(table, rows, col) {
+      if (!rows || !rows.length) return rows;
+      if (this.sortKey[table] === col) {
+        this.sortDir[table] = this.sortDir[table] === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortKey[table] = col;
+        this.sortDir[table] = 'desc';
+      }
+      const dir = this.sortDir[table] === 'asc' ? 1 : -1;
+      return [...rows].sort((a, b) => {
+        let va = a[col], vb = b[col];
+        if (va == null) va = '';
+        if (vb == null) vb = '';
+        const na = parseFloat(va), nb = parseFloat(vb);
+        if (!isNaN(na) && !isNaN(nb)) return (na - nb) * dir;
+        return String(va).localeCompare(String(vb)) * dir;
+      });
+    },
+
+    toggleSort(table, col) {
+      if (!this.sortKey[table]) { this.sortKey[table] = col; this.sortDir[table] = 'desc'; }
+      else if (this.sortKey[table] === col) { this.sortDir[table] = this.sortDir[table] === 'asc' ? 'desc' : 'asc'; }
+      else { this.sortKey[table] = col; this.sortDir[table] = 'desc'; }
+    },
+
+    sortIcon(table, col) {
+      if (this.sortKey[table] !== col) return '';
+      return this.sortDir[table] === 'asc' ? ' \u25B2' : ' \u25BC';
+    },
+
+    toggleExpand(table, idx) {
+      const key = table + '_' + idx;
+      this.expandedRow[key] = !this.expandedRow[key];
+    },
+
+    isExpanded(table, idx) {
+      return !!this.expandedRow[table + '_' + idx];
+    },
+
+    filterByValue(col, val) {
+      this.searchQuery = String(val);
+      this._showToast(`Filtered by ${col}: ${val}`, 'info', 2000);
+    },
     exportJson() {
       if (!this.report) return;
       const blob = new Blob([JSON.stringify(this.report, null, 2)], {type: 'application/json'});
@@ -501,7 +666,105 @@ document.addEventListener('alpine:init', () => {
       return b.toFixed(2) + ' PB';
     },
     formatNum(v) { return v != null ? Number(v).toLocaleString() : '\u2014'; },
-    formatPct(v) { return v != null ? v + '%' : '\u2014'; }
+    formatPct(v) { return v != null ? v + '%' : '\u2014'; },
+
+    addBatchFile(fileObj) {
+      this.batchFiles.push({ file: fileObj, content: '', name: fileObj.name });
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const idx = this.batchFiles.findIndex(f => f.file === fileObj);
+        if (idx >= 0) this.batchFiles[idx].content = e.target.result;
+      };
+      reader.readAsText(fileObj);
+    },
+
+    addBatchPaste(name) {
+      this.batchFiles.push({ file: null, content: '', name: name || 'paste-' + (this.batchFiles.length + 1) });
+    },
+
+    removeBatchFile(idx) {
+      this.batchFiles.splice(idx, 1);
+    },
+
+    async analyzeBatch() {
+      if (!this.batchFiles.length) return;
+      this.batchLoading = true;
+      this.batchError = null;
+      try {
+        const files = this.batchFiles.map(f => ({ content: f.content, name: f.name }));
+        const res = await fetch('/api/analyze-batch', {
+          method: 'POST',
+          headers: {'Authorization': 'Bearer ' + Alpine.store('auth').token, 'Content-Type': 'application/json'},
+          body: JSON.stringify({ files, log_type: this.logType, exclude_ips: this.excludeIps, label: this.batchLabel })
+        });
+        if (res.status === 401) { Alpine.store('auth').logout(); throw new Error('Session expired'); }
+        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Batch analysis failed'); }
+        const data = await res.json();
+        this.batchReports = data.reports || [];
+        this.view = 'comparison';
+        this.$nextTick(() => renderBatchCharts(this.batchReports));
+      } catch(e) {
+        this.batchError = e.message;
+      } finally {
+        this.batchLoading = false;
+      }
+    },
+
+    async analyzeCorrelate() {
+      if (!this.batchFiles.length) return;
+      this.correlationLoading = true;
+      this.correlationError = null;
+      try {
+        const files = this.batchFiles.map(f => ({ content: f.content, name: f.name, log_type: 'auto' }));
+        const res = await fetch('/api/analyze-correlate', {
+          method: 'POST',
+          headers: {'Authorization': 'Bearer ' + Alpine.store('auth').token, 'Content-Type': 'application/json'},
+          body: JSON.stringify({ files, exclude_ips: this.excludeIps })
+        });
+        if (res.status === 401) { Alpine.store('auth').logout(); throw new Error('Session expired'); }
+        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Correlation failed'); }
+        const data = await res.json();
+        this.correlationData = data.correlation || null;
+        this.view = 'correlation';
+      } catch(e) {
+        this.correlationError = e.message;
+      } finally {
+        this.correlationLoading = false;
+      }
+    },
+
+    async showContext(analysisId, entryIdx) {
+      this.contextLoading = true;
+      this.contextError = null;
+      this.contextPanel = null;
+      try {
+        const res = await fetch(`/api/context/${analysisId}/${entryIdx}?before=5&after=5`, {
+          headers: {'Authorization': 'Bearer ' + Alpine.store('auth').token}
+        });
+        if (res.status === 401) { Alpine.store('auth').logout(); throw new Error('Session expired'); }
+        if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Context not found'); }
+        this.contextPanel = await res.json();
+      } catch(e) {
+        this.contextError = e.message;
+      } finally {
+        this.contextLoading = false;
+      }
+    },
+
+    closeContext() { this.contextPanel = null; this.contextError = null; },
+
+    resetBatch() {
+      this.batchFiles = [];
+      this.batchReports = [];
+      this.batchLabel = '';
+      this.batchError = null;
+      this.batchLoading = false;
+      this.correlationData = null;
+      this.correlationError = null;
+      this.correlationLoading = false;
+      this.contextPanel = null;
+      this.contextError = null;
+    },
   }));
 });
 </script>
@@ -539,7 +802,7 @@ function renderCharts(report) {
       type: 'doughnut',
       data: {
         labels: charts.status_distribution.map(d => d.label),
-        datasets: [{ data: charts.status_distribution.map(d => d.value), backgroundColor: [successC, warningC, dangerC,'#8b5cf6','#ec4899','#6366f1','#14b8a6'], borderWidth: 0 }]
+        datasets: [{ data: charts.status_distribution.map(d => d.value), backgroundColor: [successC, warningC, dangerC,'#b8941e','#94a3b8','#64748b','#78716c'], borderWidth: 0 }]
       },
       options: doughnutOpts
     });
@@ -605,7 +868,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.top_endpoints.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.top_endpoints.slice(0, 10).map(d => d.value), backgroundColor: '#6366f1', borderRadius: 4 }]
+        datasets: [{ data: charts.top_endpoints.slice(0, 10).map(d => d.value), backgroundColor: '#b8941e', borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -660,7 +923,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.top_messages.slice(0, 10).map(d => d.label),
-        datasets: [{ data: charts.top_messages.slice(0, 10).map(d => d.value), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+        datasets: [{ data: charts.top_messages.slice(0, 10).map(d => d.value), backgroundColor: '#b8941e', borderRadius: 4 }]
       },
       options: barOpts(true)
     });
@@ -693,7 +956,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.response_time_histogram.map(d => d.label),
-        datasets: [{ label: 'Requests', data: charts.response_time_histogram.map(d => d.value), backgroundColor: '#14b8a6', borderRadius: 4 }]
+        datasets: [{ label: 'Requests', data: charts.response_time_histogram.map(d => d.value), backgroundColor: '#b8941e', borderRadius: 4 }]
       },
       options: barOpts(false)
     });
@@ -704,7 +967,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.duration_histogram.map(d => d.label),
-        datasets: [{ label: 'Requests', data: charts.duration_histogram.map(d => d.value), backgroundColor: '#14b8a6', borderRadius: 4 }]
+        datasets: [{ label: 'Requests', data: charts.duration_histogram.map(d => d.value), backgroundColor: '#b8941e', borderRadius: 4 }]
       },
       options: barOpts(false)
     });
@@ -715,7 +978,7 @@ function renderCharts(report) {
       type: 'bar',
       data: {
         labels: charts.bytes_distribution.map(d => d.label),
-        datasets: [{ label: 'Requests', data: charts.bytes_distribution.map(d => d.value), backgroundColor: '#ec4899', borderRadius: 4 }]
+        datasets: [{ label: 'Requests', data: charts.bytes_distribution.map(d => d.value), backgroundColor: '#94a3b8', borderRadius: 4 }]
       },
       options: barOpts(false)
     });
@@ -822,7 +1085,7 @@ function renderCharts(report) {
     }
     if (charts.stmt_type_distribution && charts.stmt_type_distribution.length) {
       try {
-        const stmtColors = { SELECT: '#3b82f6', INSERT: '#22c55e', UPDATE: '#f59e0b', DELETE: '#ef4444', BEGIN: '#a78bfa', COMMIT: '#a78bfa', ROLLBACK: '#f97316', COPY: '#ec4899', SET: '#6366f1', CREATE: '#14b8a6', OTHER: '#6b7280' };
+        const stmtColors = { SELECT: '#d4af37', INSERT: '#22c55e', UPDATE: '#f59e0b', DELETE: '#ef4444', BEGIN: '#b8941e', COMMIT: '#b8941e', ROLLBACK: '#f97316', COPY: '#94a3b8', SET: '#64748b', CREATE: '#78716c', OTHER: '#6b7280' };
         new Chart(document.getElementById('chart-pg-stmts'), {
           type: 'doughnut',
           data: {
@@ -839,7 +1102,7 @@ function renderCharts(report) {
           type: 'bar',
           data: {
             labels: charts.top_tables.map(d => d.label),
-            datasets: [{ label: 'Queries', data: charts.top_tables.map(d => d.value), backgroundColor: '#8b5cf6', borderRadius: 4 }]
+            datasets: [{ label: 'Queries', data: charts.top_tables.map(d => d.value), backgroundColor: '#b8941e', borderRadius: 4 }]
           },
           options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'Count', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
         });
@@ -857,7 +1120,108 @@ function renderCharts(report) {
         });
       } catch(e) { console.error('pg table duration chart:', e); }
     }
+    if (charts.lock_by_hour && charts.lock_by_hour.length) {
+      try {
+        new Chart(document.getElementById('chart-pg-locks'), {
+          type: 'bar',
+          data: {
+            labels: charts.lock_by_hour.map(d => d.label),
+            datasets: [{ label: 'Lock Events', data: charts.lock_by_hour.map(d => d.value), backgroundColor: dangerC, borderRadius: 4 }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: tickColor, maxTicksLimit: 12 }, grid: { display: false } }, y: { title: { display: true, text: 'Count', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } } }, plugins: { legend: { display: false } } }
+        });
+      } catch(e) { console.error('pg locks chart:', e); }
+    }
+    if (charts.autovacuum_by_table && charts.autovacuum_by_table.length) {
+      try {
+        new Chart(document.getElementById('chart-pg-autovac-table'), {
+          type: 'bar',
+          data: {
+            labels: charts.autovacuum_by_table.map(d => d.label),
+            datasets: [{ label: 'Autovacuum Runs', data: charts.autovacuum_by_table.map(d => d.value), backgroundColor: '#b8941e', borderRadius: 4 }]
+          },
+          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'Count', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }, y: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+        });
+      } catch(e) { console.error('pg autovac table chart:', e); }
+    }
+    if (charts.autovacuum_by_hour && charts.autovacuum_by_hour.length) {
+      try {
+        new Chart(document.getElementById('chart-pg-autovac-hour'), {
+          type: 'bar',
+          data: {
+            labels: charts.autovacuum_by_hour.map(d => d.label),
+            datasets: [{ label: 'Autovacuum Runs', data: charts.autovacuum_by_hour.map(d => d.value), backgroundColor: accentMid, borderRadius: 4 }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: tickColor, maxTicksLimit: 12 }, grid: { display: false } }, y: { title: { display: true, text: 'Count', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } } }, plugins: { legend: { display: false } } }
+        });
+      } catch(e) { console.error('pg autovac hour chart:', e); }
+    }
+    if (charts.replication_by_hour && charts.replication_by_hour.length) {
+      try {
+        new Chart(document.getElementById('chart-pg-repl-hour'), {
+          type: 'bar',
+          data: {
+            labels: charts.replication_by_hour.map(d => d.label),
+            datasets: [{ label: 'Replication Events', data: charts.replication_by_hour.map(d => d.value), backgroundColor: '#60a5fa', borderRadius: 4 }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: tickColor, maxTicksLimit: 12 }, grid: { display: false } }, y: { title: { display: true, text: 'Count', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } } }, plugins: { legend: { display: false } } }
+        });
+      } catch(e) { console.error('pg replication chart:', e); }
+    }
   }
+}
+
+function renderBatchCharts(reports) {
+  const cs = getComputedStyle(document.documentElement);
+  const tickColor = cs.getPropertyValue('--c-text-dim').trim() || '#9ca3af';
+  const gridColor = cs.getPropertyValue('--c-border').trim() || '#243049';
+  const accentMid = cs.getPropertyValue('--c-accent-mid').trim() || '#d4af37';
+  const successC = cs.getPropertyValue('--c-success').trim() || '#22c55e';
+  const warningC = cs.getPropertyValue('--c-warning').trim() || '#f59e0b';
+  const dangerC = cs.getPropertyValue('--c-danger').trim() || '#ef4444';
+
+  reports.forEach((r, idx) => {
+    if (!r || r.error) return;
+    const charts = r.charts || {};
+    const barOpts = (horizontal) => ({
+      indexAxis: horizontal ? 'y' : 'x', responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: tickColor, font: { size: 9 } }, grid: { color: horizontal ? gridColor : 'rgba(0,0,0,0)' } },
+        y: { ticks: { color: tickColor, font: { size: 9 } }, grid: { color: horizontal ? 'rgba(0,0,0,0)' : gridColor } }
+      },
+      plugins: { legend: { display: false } }
+    });
+    const doughnutOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: tickColor, padding: 8, font: { size: 10 } } } } };
+
+    if (charts.hourly_timeline && charts.hourly_timeline.length) {
+      const el = document.getElementById('chart-batch-timeline-' + idx);
+      if (el) { const ex = Chart.getChart(el); if (ex) ex.destroy(); new Chart(el, { type: 'bar', data: { labels: charts.hourly_timeline.map(d => d.label), datasets: [{ data: charts.hourly_timeline.map(d => d.value), backgroundColor: accentMid, borderRadius: 3 }] }, options: barOpts(false) }); }
+    }
+    if (charts.status_distribution && charts.status_distribution.length) {
+      const el = document.getElementById('chart-batch-status-' + idx);
+      if (el) { const ex = Chart.getChart(el); if (ex) ex.destroy(); new Chart(el, { type: 'doughnut', data: { labels: charts.status_distribution.map(d => d.label), datasets: [{ data: charts.status_distribution.map(d => d.value), backgroundColor: [successC, warningC, dangerC, '#b8941e', '#94a3b8'], borderWidth: 0 }] }, options: doughnutOpts }); }
+    }
+    if (charts.method_distribution && charts.method_distribution.length) {
+      const el = document.getElementById('chart-batch-methods-' + idx);
+      if (el) { const ex = Chart.getChart(el); if (ex) ex.destroy(); new Chart(el, { type: 'doughnut', data: { labels: charts.method_distribution.map(d => d.label), datasets: [{ data: charts.method_distribution.map(d => d.value), backgroundColor: [accentMid, successC, warningC, dangerC, '#8b5cf6'], borderWidth: 0 }] }, options: doughnutOpts }); }
+    }
+    if (charts.top_endpoints && charts.top_endpoints.length) {
+      const el = document.getElementById('chart-batch-endpoints-' + idx);
+      if (el) { const ex = Chart.getChart(el); if (ex) ex.destroy(); new Chart(el, { type: 'bar', data: { labels: charts.top_endpoints.slice(0, 8).map(d => d.label.length > 25 ? d.label.slice(0,25)+'…' : d.label), datasets: [{ data: charts.top_endpoints.slice(0, 8).map(d => d.value), backgroundColor: '#b8941e', borderRadius: 3 }] }, options: barOpts(true) }); }
+    }
+    if (charts.top_ips && charts.top_ips.length) {
+      const el = document.getElementById('chart-batch-ips-' + idx);
+      if (el) { const ex = Chart.getChart(el); if (ex) ex.destroy(); new Chart(el, { type: 'bar', data: { labels: charts.top_ips.slice(0, 8).map(d => d.label), datasets: [{ data: charts.top_ips.slice(0, 8).map(d => d.value), backgroundColor: successC, borderRadius: 3 }] }, options: barOpts(true) }); }
+    }
+    if (charts.level_distribution && charts.level_distribution.length) {
+      const el = document.getElementById('chart-batch-levels-' + idx);
+      if (el) { const ex = Chart.getChart(el); if (ex) ex.destroy(); new Chart(el, { type: 'doughnut', data: { labels: charts.level_distribution.map(d => d.label), datasets: [{ data: charts.level_distribution.map(d => d.value), backgroundColor: [successC, accentMid, warningC, dangerC, '#8b5cf6', '#6b7280'], borderWidth: 0 }] }, options: doughnutOpts }); }
+    }
+    if (charts.top_messages && charts.top_messages.length) {
+      const el = document.getElementById('chart-batch-msgs-' + idx);
+      if (el) { const ex = Chart.getChart(el); if (ex) ex.destroy(); new Chart(el, { type: 'bar', data: { labels: charts.top_messages.slice(0, 8).map(d => d.label.length > 30 ? d.label.slice(0,30)+'…' : d.label), datasets: [{ data: charts.top_messages.slice(0, 8).map(d => d.value), backgroundColor: '#b8941e', borderRadius: 3 }] }, options: barOpts(true) }); }
+    }
+  });
 }
 </script>
 
@@ -866,8 +1230,8 @@ function renderCharts(report) {
 <div x-show="!$store.auth.loggedIn" x-cloak class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden" style="background:var(--c-bg)">
     <!-- Background decoration -->
     <div class="absolute inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-[0.07]" :class="$store.theme.dark ? 'bg-accent-500' : 'bg-blue-400'" style="filter:blur(100px)"></div>
-      <div class="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-[0.05]" :class="$store.theme.dark ? 'bg-purple-500' : 'bg-indigo-400'" style="filter:blur(100px)"></div>
+      <div class="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-[0.07]" style="background:var(--c-accent-mid);filter:blur(100px)"></div>
+      <div class="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-[0.05]" style="background:#94a3b8;filter:blur(100px)"></div>
       <div x-show="$store.theme.dark" class="absolute inset-0" style="background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.03) 1px, transparent 0);background-size:40px 40px"></div>
     </div>
 
@@ -911,7 +1275,7 @@ function renderCharts(report) {
 
             <!-- Submit -->
             <button type="submit" :disabled="loading || !apiKey.trim()" class="mt-6 w-full py-3.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 relative overflow-hidden disabled:cursor-not-allowed"
-              :class="(!loading && apiKey.trim()) ? ($store.theme.dark ? 'bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-400 hover:to-accent-500 text-white shadow-lg shadow-accent-500/20 hover:shadow-accent-500/30' : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30') : ($store.theme.dark ? 'bg-dark-700 text-gray-600' : 'bg-gray-200 text-gray-400')">
+              :class="(!loading && apiKey.trim()) ? ($store.theme.dark ? 'bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-400 hover:to-accent-500 text-white shadow-lg shadow-accent-500/20 hover:shadow-accent-500/30' : 'bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-400 hover:to-accent-500 text-white shadow-lg shadow-accent-500/20 hover:shadow-accent-500/30') : ($store.theme.dark ? 'bg-dark-700 text-gray-600' : 'bg-gray-200 text-gray-400')">
               <span x-show="!loading" class="flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
                 Sign In
@@ -943,7 +1307,7 @@ function renderCharts(report) {
 </div>
 
 <div x-show="$store.auth.loggedIn" x-cloak class="min-h-screen flex flex-col" x-data="analyzer">
-    <header class="border-b sticky top-0 z-50 transition-colors" style="background:var(--c-surface);border-color:var(--c-border)">
+    <header class="sticky top-0 z-50 transition-colors" :class="$store.theme.dark ? 'border-b' : 'border-b'" :style="$store.theme.dark ? 'background:rgba(8,47,73,0.85);backdrop-filter:blur(12px);border-bottom-color:rgba(212,175,55,0.25)' : 'background:var(--c-surface);border-bottom-color:var(--c-border)'">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--c-surface-raised);border:1px solid var(--c-border)">
@@ -954,6 +1318,10 @@ function renderCharts(report) {
           <span class="text-lg font-bold tracking-tight" style="color:var(--c-text)">LogLens</span>
         </div>
         <div class="flex items-center gap-2">
+          <button @click="showHistory()" class="text-sm transition px-2.5 py-1.5 rounded-lg min-h-[44px] flex items-center gap-1.5" style="color:var(--c-text-muted)" title="Report History">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="hidden sm:inline">History</span>
+          </button>
           <button @click="$store.theme.toggle()" class="text-sm transition px-2.5 py-1.5 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center" style="color:var(--c-text-muted)" :title="$store.theme.dark ? 'Switch to light mode' : 'Switch to dark mode'">
             <svg x-show="$store.theme.dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
             <svg x-show="!$store.theme.dark" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
@@ -984,6 +1352,7 @@ function renderCharts(report) {
             <div class="flex gap-1 p-1 bg-dark-700 rounded-lg mb-5">
               <button @click="inputMode='file'; file=null" :class="inputMode==='file' ? 'tab-active' : 'text-gray-400 hover:text-gray-200'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition min-h-[44px]">Upload File</button>
               <button @click="inputMode='paste'; file=null" :class="inputMode==='paste' ? 'tab-active' : 'text-gray-400 hover:text-gray-200'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition min-h-[44px]">Paste Logs</button>
+              <button @click="inputMode='batch'; resetBatch()" :class="inputMode==='batch' ? 'tab-active' : 'text-gray-400 hover:text-gray-200'" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition min-h-[44px]">Multi-File</button>
             </div>
 
             <template x-if="inputMode==='file'">
@@ -1000,7 +1369,7 @@ function renderCharts(report) {
                 <input type="file" x-ref="fileInput" class="hidden" @change="file=$event.target.files[0]; if(file) inputMode='file'">
                 <template x-if="!file">
                   <div>
-                    <svg class="w-10 h-10 mx-auto text-gray-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <svg class="w-10 h-10 mx-auto mb-3" style="color:var(--c-accent-mid)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
                     </svg>
                     <p class="text-gray-400 text-sm">Drop a log file here or click to browse</p>
@@ -1025,7 +1394,49 @@ function renderCharts(report) {
             <template x-if="inputMode==='paste'">
               <div class="mb-5">
                 <label class="block text-sm font-medium text-gray-300 mb-2">Log Content <span x-show="pasteContent.trim()" class="text-gray-500 font-normal" x-text="'(' + pasteContent.trim().split('\\n').filter(l => l.trim()).length + ' lines)'"></span></label>
-                <textarea x-model="pasteContent" rows="10" placeholder="Paste your log content here...&#10;&#10;Each line should be a single log entry." class="w-full px-4 py-3 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm font-mono resize-y"></textarea>
+                <textarea x-model="pasteContent" rows="10" @input="_autoSaveDraft()" placeholder="Paste your log content here...&#10;&#10;Each line should be a single log entry." class="w-full px-4 py-3 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm font-mono resize-y"></textarea>
+              </div>
+            </template>
+
+            <template x-if="inputMode==='batch'">
+              <div class="mb-5 space-y-4">
+                <template x-if="batchError">
+                  <div class="p-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm flex items-center gap-2">
+                    <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                    <span x-text="batchError"></span>
+                  </div>
+                </template>
+
+                <div class="border-2 border-dashed border-dark-600 rounded-xl p-6 text-center hover:border-gray-500 transition"
+                  @dragover.prevent="$el.classList.add('drag-active')"
+                  @dragleave.prevent="$el.classList.remove('drag-active')"
+                  @drop.prevent="$el.classList.remove('drag-active'); Array.from($event.dataTransfer.files).forEach(f => addBatchFile(f))"
+                  @click="$refs.batchFileInput.click()"
+                  role="button" tabindex="0" @keydown.enter="$refs.batchFileInput.click()">
+                  <input type="file" x-ref="batchFileInput" class="hidden" multiple @change="Array.from($event.target.files).forEach(f => addBatchFile(f)); $event.target.value=''">
+                  <svg class="w-8 h-8 mx-auto mb-2" style="color:var(--c-accent-mid)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                  </svg>
+                  <p class="text-gray-400 text-sm">Drop files here or click to add</p>
+                  <p class="text-gray-600 text-xs mt-1">Add multiple log files for comparison or correlation</p>
+                </div>
+
+                <div class="space-y-2">
+                  <template x-for="(bf, idx) in batchFiles" :key="idx">
+                    <div class="flex items-center gap-3 p-3 rounded-lg bg-dark-700 border border-dark-600">
+                      <svg class="w-4 h-4 shrink-0" style="color:var(--c-accent-mid)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                      <div class="flex-1 min-w-0">
+                        <input type="text" x-model="bf.name" class="w-full bg-transparent text-white text-sm focus:outline-none border-b border-transparent focus:border-accent-500 transition">
+                        <p class="text-xs text-gray-500" x-text="bf.content ? bf.content.split('\\n').filter(l=>l.trim()).length + ' lines' : 'Loading...'"></p>
+                      </div>
+                      <button @click="removeBatchFile(idx)" class="text-gray-500 hover:text-danger transition p-1">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+
+                </div>
               </div>
             </template>
 
@@ -1051,10 +1462,107 @@ function renderCharts(report) {
               <p class="text-xs text-gray-500 mt-1">Comma-separated IPs to skip from analysis</p>
             </div>
 
-            <button @click="analyze()" :disabled="!file && !pasteContent.trim()" class="w-full py-3 px-4 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold transition text-sm flex items-center justify-center gap-2 min-h-[44px]">
+            <div class="mb-4">
+              <label class="block text-xs font-semibold uppercase tracking-widest mb-1.5" style="color:var(--c-text-muted)">Session Label <span class="font-normal">(optional)</span></label>
+              <input type="text" x-model="reportLabel" placeholder="e.g. Post-deploy perf check 2026-07-18"
+                class="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm">
+            </div>
+
+            <button x-show="inputMode !== 'batch'" @click="analyze()" :disabled="!file && !pasteContent.trim()" class="w-full py-3 px-4 rounded-lg text-white font-semibold transition text-sm flex items-center justify-center gap-2 min-h-[44px]"
+              style="background:linear-gradient(135deg, var(--c-accent-mid), var(--c-accent-deep));box-shadow:0 4px 20px rgba(212,175,55,0.25);opacity:0.95"
+              :disabled="!file && !pasteContent.trim()"
+              :class="(!file && !pasteContent.trim()) ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-[0_6px_28px_rgba(212,175,55,0.4)] hover:opacity-100'">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
               Analyze Logs
             </button>
+
+            <div x-show="inputMode === 'batch'" class="flex gap-3">
+              <button @click="analyzeBatch()" :disabled="!batchFiles.length || batchLoading" class="flex-1 py-3 px-4 rounded-lg text-white font-semibold transition text-sm flex items-center justify-center gap-2 min-h-[44px]"
+                style="background:linear-gradient(135deg, var(--c-accent-mid), var(--c-accent-deep));box-shadow:0 4px 20px rgba(212,175,55,0.25)"
+                :class="(!batchFiles.length || batchLoading) ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-[0_6px_28px_rgba(212,175,55,0.4)] hover:opacity-100'">
+                <svg x-show="batchLoading" class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                <span x-text="batchLoading ? 'Analyzing...' : 'Compare Reports'"></span>
+              </button>
+              <button @click="analyzeCorrelate()" :disabled="!batchFiles.length || correlationLoading" class="flex-1 py-3 px-4 rounded-lg text-white font-semibold transition text-sm flex items-center justify-center gap-2 min-h-[44px]"
+                style="background:linear-gradient(135deg, var(--c-accent-deep), #1a5276);box-shadow:0 4px 20px rgba(26,82,118,0.25)"
+                :class="(!batchFiles.length || correlationLoading) ? 'opacity-40 cursor-not-allowed' : 'hover:shadow-[0_6px_28px_rgba(26,82,118,0.4)] hover:opacity-100'">
+                <svg x-show="correlationLoading" class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                <span x-text="correlationLoading ? 'Correlating...' : 'Cross-Reference'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="view === 'history'">
+        <div class="fade-in max-w-4xl mx-auto">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Report History</h2>
+              <p class="text-gray-400 mt-1 text-sm" x-text="historyReports.length + ' report(s) saved locally'"></p>
+            </div>
+            <button @click="view='upload'" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium">Back to Upload</button>
+          </div>
+
+          <div class="flex gap-3 mb-5">
+            <div class="flex-1">
+              <input type="text" x-model="historyQuery" @input.debounce.300ms="loadHistory()" placeholder="Search reports..."
+                class="w-full px-4 py-2.5 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm">
+            </div>
+            <select x-model="historyFilterType" @change="loadHistory()"
+              class="px-3 py-2.5 rounded-lg bg-dark-700 border border-dark-600 text-white focus:outline-none focus:ring-2 focus:ring-accent-500 transition text-sm">
+              <option value="all">All Types</option>
+              <option value="nginx_access">Nginx Access</option>
+              <option value="nginx_error">Nginx Error</option>
+              <option value="container">Container</option>
+              <option value="syslog">Syslog</option>
+              <option value="api_backend">API Backend</option>
+              <option value="postgres">PostgreSQL</option>
+            </select>
+          </div>
+
+          <template x-if="historyReports.length === 0">
+            <div class="text-center py-16">
+              <svg class="w-12 h-12 mx-auto mb-4" style="color:var(--c-text-muted)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <p class="text-gray-400">No reports saved yet.</p>
+              <p class="text-gray-500 text-sm mt-1">Reports are automatically saved after analysis.</p>
+            </div>
+          </template>
+
+          <div class="space-y-3">
+            <template x-for="rec in historyReports" :key="rec.id">
+              <div class="bg-dark-800 border border-dark-600 rounded-xl p-4 hover:border-accent-500/30 transition cursor-pointer" @click="openHistoryReport(rec)">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent-500/15 text-accent-400" x-text="rec.log_type_label"></span>
+                      <template x-if="rec.summary && rec.summary.health">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                          :class="{
+                            'bg-success/15 text-success': rec.summary.health === 'healthy',
+                            'bg-warning/15 text-warning': rec.summary.health === 'degraded',
+                            'bg-danger/15 text-danger': rec.summary.health === 'critical',
+                          }" x-text="rec.summary.health"></span>
+                      </template>
+                    </div>
+                    <p class="text-white text-sm font-medium truncate" x-text="rec.label || 'Untitled session'"></p>
+                    <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                      <span x-text="new Date(rec.timestamp).toLocaleString()"></span>
+                      <span x-show="rec.total_lines" x-text="rec.total_lines?.toLocaleString() + ' lines'"></span>
+                      <span x-show="rec.summary && rec.summary.total_entries" x-text="rec.summary?.total_entries?.toLocaleString() + ' entries'"></span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <button @click.stop="const newLabel = prompt('Label:', rec.label || ''); if(newLabel !== null) { rec.label = newLabel; updateHistoryLabel(rec.id, newLabel); }" class="p-2 rounded-lg hover:bg-dark-700 transition" style="color:var(--c-text-muted)" title="Rename">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                    </button>
+                    <button @click.stop="deleteHistoryReport(rec.id)" class="p-2 rounded-lg hover:bg-dark-700 transition text-gray-500 hover:text-danger" title="Delete">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </template>
@@ -1087,6 +1595,17 @@ function renderCharts(report) {
               <h2 class="text-2xl font-bold text-white">Analysis Report</h2>
               <div class="flex flex-wrap items-center gap-2 mt-2">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-500/20 text-accent-400 border border-accent-500/20" x-text="report.log_type_label || report.log_type || 'unknown'"></span>
+                <template x-if="report.detection_confidence != null">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border"
+                    :class="{
+                      'bg-success/15 text-success border-success/20': report.detection_confidence >= 0.7,
+                      'bg-warning/15 text-warning border-warning/20': report.detection_confidence >= 0.4 && report.detection_confidence < 0.7,
+                      'bg-danger/15 text-danger border-danger/20': report.detection_confidence < 0.4,
+                    }">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="{'bg-success': report.detection_confidence>=0.7, 'bg-warning': report.detection_confidence>=0.4 && report.detection_confidence<0.7, 'bg-danger': report.detection_confidence<0.4}"></span>
+                    <span x-text="(report.detection_confidence * 100).toFixed(0) + '% confidence'"></span>
+                  </span>
+                </template>
                 <template x-if="report.summary && report.summary.health">
                   <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border"
                     :class="{
@@ -1119,6 +1638,7 @@ function renderCharts(report) {
               </div>
             </div>
             <div class="flex flex-wrap gap-2 shrink-0">
+              <button @click="showHistory()" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium">History</button>
               <button @click="reset()" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium">New Analysis</button>
               <button @click="exportJson()" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -1130,6 +1650,15 @@ function renderCharts(report) {
                 <span x-text="pdfExporting ? 'Generating...' : 'Export PDF'"></span>
               </button>
             </div>
+          </div>
+
+          <div class="flex items-center gap-3 bg-dark-800 border border-dark-600 rounded-xl px-4 py-3">
+            <svg class="w-4 h-4 shrink-0" style="color:var(--c-text-muted)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" x-model="searchQuery" placeholder="Search across entire report (IPs, paths, errors, messages...)"
+              class="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm">
+            <button x-show="searchQuery" @click="searchQuery=''" class="text-gray-500 hover:text-white transition">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
           </div>
 
           <div id="report-content" class="space-y-6">
@@ -1146,6 +1675,9 @@ function renderCharts(report) {
                 { show: report.summary.warnings != null && report.log_type === 'postgres' && report.summary.warnings > 0, label: 'Warnings', value: formatNum(report.summary.warnings), icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', cls: 'text-warning' },
                 { show: report.summary.unique_tables != null && report.log_type === 'postgres', label: 'Unique Tables', value: formatNum(report.summary.unique_tables), icon: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
                 { show: report.summary.checkpoints != null && report.log_type === 'postgres' && report.summary.checkpoints > 0, label: 'Checkpoints', value: formatNum(report.summary.checkpoints), icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+                { show: report.summary.lock_events != null && report.log_type === 'postgres' && report.summary.lock_events > 0, label: 'Lock Events', value: formatNum(report.summary.lock_events), icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z', cls: 'text-danger' },
+                { show: report.summary.autovacuum_events != null && report.log_type === 'postgres' && report.summary.autovacuum_events > 0, label: 'Autovacuum Runs', value: formatNum(report.summary.autovacuum_events), icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+                { show: report.summary.replication_events != null && report.log_type === 'postgres' && report.summary.replication_events > 0, label: 'Replication Events', value: formatNum(report.summary.replication_events), icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', cls: 'text-accent-400' },
                 { show: report.summary.total_entries != null && report.log_type !== 'postgres', label: 'Total Entries', value: formatNum(report.summary.total_entries), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
                 { show: report.summary.total_requests != null, label: report.log_type === 'nginx_access' ? 'Total Requests' : 'Total Lines', value: formatNum(report.summary.total_requests), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
                 { show: report.summary.unique_ips != null, label: 'Unique IPs', value: formatNum(report.summary.unique_ips), icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
@@ -1170,7 +1702,7 @@ function renderCharts(report) {
 
           <template x-if="report.charts && report.charts.hourly_timeline && report.charts.hourly_timeline.length">
             <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Hourly Report</h3>
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Hourly Report</h3>
               <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                 <div class="bg-dark-700 rounded-lg p-3 border border-dark-600">
                   <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Peak Hour</p>
@@ -1196,11 +1728,11 @@ function renderCharts(report) {
           </template>
 
           <div x-show="report.upstream_timing && report.log_type === 'nginx_access'" x-cloak class="space-y-4">
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Performance Analysis</h3>
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Performance Analysis</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
                   <h4 class="text-sm font-medium text-gray-300 mb-3">Response Time Over Time</h4>
-                  <p class="text-xs text-gray-500 mb-2">Each point = one request. <span class="text-accent-400">Blue</span> &lt;10s, <span class="text-warning">yellow</span> 10-30s, <span class="text-danger">red</span> &gt;30s</p>
+                  <p class="text-xs text-gray-500 mb-2">Each point = one request. <span class="text-accent-400">Gold</span> &lt;10s, <span class="text-warning">yellow</span> 10-30s, <span class="text-danger">red</span> &gt;30s</p>
                   <div class="relative" style="height:300px"><canvas id="chart-rt-scatter" data-chart></canvas></div>
                 </div>
                 <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
@@ -1217,7 +1749,7 @@ function renderCharts(report) {
           </div>
 
           <div x-show="report.log_type === 'postgres' && report.charts" x-cloak class="space-y-4">
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Query Performance</h3>
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Query Performance</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div x-show="report.duration_stats" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
                   <h4 class="text-sm font-medium text-gray-300 mb-3">Query Duration Stats</h4>
@@ -1283,11 +1815,162 @@ function renderCharts(report) {
                   </div>
                 </div>
               </template>
-          </div>
 
-          <template x-if="report.charts">
-            <div>
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Visualizations</h3>
+              <template x-if="report.normalized_queries && report.normalized_queries.length">
+                <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Normalized Queries <span class="text-gray-500">(grouped by pattern)</span></h4>
+                  <div class="overflow-x-auto table-scroll">
+                    <table class="w-full text-sm">
+                      <thead><tr class="border-b border-dark-600">
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pattern</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Count</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Avg Duration</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Table</th>
+                      </tr></thead>
+                      <tbody>
+                        <template x-for="(q, idx) in report.normalized_queries" :key="idx">
+                          <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
+                            <td class="px-4 py-2 text-gray-300 font-mono text-xs max-w-xl truncate" x-text="q.normalized"></td>
+                            <td class="px-4 py-2 text-accent-400 font-medium text-xs" x-text="q.count"></td>
+                            <td class="px-4 py-2 font-mono text-xs" :class="q.avg_duration_ms > 1000 ? 'text-danger' : q.avg_duration_ms > 100 ? 'text-warning' : 'text-gray-300'" x-text="q.avg_duration_ms ? q.avg_duration_ms.toFixed(1) + 'ms' : '—'"></td>
+                            <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="q.sample_stmt_type || '—'"></td>
+                            <td class="px-4 py-2 text-gray-400 text-xs" x-text="q.sample_table || '—'"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="report.lock_summary && report.lock_summary.total > 0">
+                <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Lock Events <span class="text-danger" x-text="'(' + report.lock_summary.total + ' total)'"></span></h4>
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
+                    <template x-for="(count, type) in report.lock_summary.by_type" :key="type">
+                      <div class="bg-dark-700/50 rounded-lg p-3">
+                        <div class="text-gray-500 text-xs uppercase" x-text="type"></div>
+                        <div class="text-white font-medium mt-1" x-text="count"></div>
+                      </div>
+                    </template>
+                  </div>
+                  <div x-show="report.charts.lock_by_hour && report.charts.lock_by_hour.length" class="mb-4">
+                    <h5 class="text-xs text-gray-500 mb-2">Hourly Lock Events</h5>
+                    <div class="relative" style="height:180px"><canvas id="chart-pg-locks" data-chart></canvas></div>
+                  </div>
+                  <div x-show="report.lock_events && report.lock_events.length" class="overflow-x-auto table-scroll mt-4">
+                    <table class="w-full text-sm">
+                      <thead><tr class="border-b border-dark-600">
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">PID</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Level</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
+                      </tr></thead>
+                      <tbody>
+                        <template x-for="(le, idx) in report.lock_events.slice(0, 30)" :key="idx">
+                          <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
+                            <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="le.timestamp"></td>
+                            <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="le.pid"></td>
+                            <td class="px-4 py-2 text-danger font-mono text-xs" x-text="le.level"></td>
+                            <td class="px-4 py-2 text-gray-300 font-mono text-xs max-w-lg truncate" x-text="le.message"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="report.autovacuum_summary && report.autovacuum_summary.total > 0">
+                <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Autovacuum Activity <span class="text-accent-400" x-text="'(' + report.autovacuum_summary.total + ' runs)'"></span></h4>
+                  <div x-show="report.charts.autovacuum_by_table && report.charts.autovacuum_by_table.length" class="mb-4">
+                    <h5 class="text-xs text-gray-500 mb-2">By Table</h5>
+                    <div class="relative" style="height:180px"><canvas id="chart-pg-autovac-table" data-chart></canvas></div>
+                  </div>
+                  <div x-show="report.charts.autovacuum_by_hour && report.charts.autovacuum_by_hour.length" class="mb-4">
+                    <h5 class="text-xs text-gray-500 mb-2">Hourly</h5>
+                    <div class="relative" style="height:180px"><canvas id="chart-pg-autovac-hour" data-chart></canvas></div>
+                  </div>
+                  <div x-show="report.autovacuum_events && report.autovacuum_events.length" class="overflow-x-auto table-scroll mt-4">
+                    <table class="w-full text-sm">
+                      <thead><tr class="border-b border-dark-600">
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">PID</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Table</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Dead Tuples</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Live Tuples</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
+                      </tr></thead>
+                      <tbody>
+                        <template x-for="(av, idx) in report.autovacuum_events.slice(0, 30)" :key="idx">
+                          <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
+                            <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="av.timestamp"></td>
+                            <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="av.pid"></td>
+                            <td class="px-4 py-2 text-gray-300 text-xs" x-text="av.table || '—'"></td>
+                            <td class="px-4 py-2 text-warning font-mono text-xs" x-text="av.dead_tuples != null ? formatNum(av.dead_tuples) : '—'"></td>
+                            <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="av.live_tuples != null ? formatNum(av.live_tuples) : '—'"></td>
+                            <td class="px-4 py-2 text-gray-300 font-mono text-xs max-w-lg truncate" x-text="av.message"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="report.replication_summary && report.replication_summary.total > 0">
+                <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+                  <h4 class="text-sm font-medium text-gray-300 mb-3">Replication <span class="text-accent-400" x-text="'(' + report.replication_summary.total + ' events)'"></span></h4>
+                  <div x-show="report.replication_summary.lag_stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
+                    <div class="bg-dark-700/50 rounded-lg p-3">
+                      <div class="text-gray-500 text-xs">Avg Lag</div>
+                      <div class="text-white font-medium mt-1" x-text="(report.replication_summary.lag_stats?.avg ?? '—') + (report.replication_summary.lag_stats?.lag_unit || '')"></div>
+                    </div>
+                    <div class="bg-dark-700/50 rounded-lg p-3">
+                      <div class="text-gray-500 text-xs">Max Lag</div>
+                      <div class="text-danger font-medium mt-1" x-text="(report.replication_summary.lag_stats?.max ?? '—') + (report.replication_summary.lag_stats?.lag_unit || '')"></div>
+                    </div>
+                    <div class="bg-dark-700/50 rounded-lg p-3">
+                      <div class="text-gray-500 text-xs">Min Lag</div>
+                      <div class="text-success font-medium mt-1" x-text="(report.replication_summary.lag_stats?.min ?? '—') + (report.replication_summary.lag_stats?.lag_unit || '')"></div>
+                    </div>
+                    <div class="bg-dark-700/50 rounded-lg p-3">
+                      <div class="text-gray-500 text-xs">Measurements</div>
+                      <div class="text-white font-medium mt-1" x-text="report.replication_summary.lag_stats?.count ?? 0"></div>
+                    </div>
+                  </div>
+                  <div x-show="report.charts.replication_by_hour && report.charts.replication_by_hour.length" class="mb-4">
+                    <h5 class="text-xs text-gray-500 mb-2">Hourly Events</h5>
+                    <div class="relative" style="height:180px"><canvas id="chart-pg-repl-hour" data-chart></canvas></div>
+                  </div>
+                  <div x-show="report.replication_events && report.replication_events.length" class="overflow-x-auto table-scroll mt-4">
+                    <table class="w-full text-sm">
+                      <thead><tr class="border-b border-dark-600">
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">PID</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Level</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lag</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
+                      </tr></thead>
+                      <tbody>
+                        <template x-for="(re, idx) in report.replication_events.slice(0, 30)" :key="idx">
+                          <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
+                            <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="re.timestamp"></td>
+                            <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="re.pid"></td>
+                            <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="re.level"></td>
+                            <td class="px-4 py-2 text-warning font-mono text-xs" x-text="re.lag_value ? re.lag_value + (re.lag_unit || '') : '—'"></td>
+                            <td class="px-4 py-2 text-gray-300 font-mono text-xs max-w-lg truncate" x-text="re.message"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </template>
+          </div>
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Visualizations</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div x-show="report.charts.status_distribution" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
                   <h4 class="text-sm font-medium text-gray-300 mb-3">Status Distribution</h4>
@@ -1359,7 +2042,7 @@ function renderCharts(report) {
 
           <template x-if="report.tables">
             <div class="space-y-4">
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Detailed Tables</h3>
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Detailed Tables</h3>
 
               <template x-if="report.charts && report.charts.hourly_timeline && report.charts.hourly_timeline.length">
                 <div class="bg-dark-800 border border-dark-600 rounded-xl overflow-hidden">
@@ -1517,8 +2200,8 @@ function renderCharts(report) {
                       <tbody>
                         <template x-for="row in report.tables.status_codes" :key="row.code">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
-                            <td class="px-5 py-2.5">
-                              <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
+                            <td class="px-5 py-2.5 cursor-pointer" @click="searchQuery = String(row.code)">
+                              <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium clickable"
                                 :class="{
                                   'bg-success/15 text-success': String(row.code).startsWith('2'),
                                   'bg-accent-500/15 text-accent-400': String(row.code).startsWith('3'),
@@ -1556,7 +2239,7 @@ function renderCharts(report) {
                       <tbody>
                         <template x-for="row in report.tables.ip_details" :key="row.ip">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
-                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs" x-text="row.ip"></td>
+                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs clickable" x-text="row.ip" @click="searchQuery = row.ip"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.total)"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="formatBytes(row.total_bytes)"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
@@ -1587,7 +2270,7 @@ function renderCharts(report) {
                       <tbody>
                         <template x-for="row in report.tables.top_endpoints" :key="row.path">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
-                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate" x-text="row.path" :title="row.path"></td>
+                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate clickable" x-text="row.path" :title="row.path" @click="searchQuery = row.path"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
                             <td class="px-5 py-2.5 text-gray-400" x-text="formatPct(row.pct)"></td>
                           </tr>
@@ -1616,7 +2299,7 @@ function renderCharts(report) {
                       <tbody>
                         <template x-for="row in report.tables.endpoint_details" :key="row.endpoint">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
-                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate" x-text="row.endpoint" :title="row.endpoint"></td>
+                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate clickable" x-text="row.endpoint" :title="row.endpoint" @click="searchQuery = row.endpoint"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
                             <td class="px-5 py-2.5">
                               <span :class="row.errors > 0 ? 'text-danger' : 'text-gray-400'" x-text="formatNum(row.errors)"></span>
@@ -1727,7 +2410,7 @@ function renderCharts(report) {
                       <tbody>
                         <template x-for="(row, idx) in report.tables.top_messages.slice(0, 20)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
-                            <td class="px-5 py-2.5 text-gray-300 text-xs max-w-lg truncate" x-text="row.message" :title="row.message"></td>
+                            <td class="px-5 py-2.5 text-gray-300 text-xs max-w-lg truncate clickable" x-text="row.message" :title="row.message + ' (click to search)'" @click="searchQuery = row.message"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
                           </tr>
                         </template>
@@ -1746,6 +2429,7 @@ function renderCharts(report) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Context</th>
                       </tr></thead>
                       <tbody>
                         <template x-for="(row, idx) in report.tables.error_samples.slice(0, 25)" :key="idx">
@@ -1753,16 +2437,30 @@ function renderCharts(report) {
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.timestamp || '—'"></td>
                             <td class="px-5 py-2.5">
                               <template x-if="row.level">
-                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium"
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium clickable"
                                   :class="{
                                     'bg-danger/15 text-danger': (row.level||'').match(/error|crit|emerg|fatal/i),
                                     'bg-warning/15 text-warning': (row.level||'').match(/warn/i),
                                     'bg-accent-500/15 text-accent-400': !(row.level||'').match(/error|crit|emerg|fatal|warn/i),
-                                  }" x-text="row.level"></span>
+                                  }" x-text="row.level" @click="searchQuery = row.level"></span>
                               </template>
                               <template x-if="!row.level"><span class="text-gray-600 text-xs">—</span></template>
                             </td>
-                            <td class="px-5 py-2.5 text-gray-300 text-xs max-w-md truncate" x-text="row.message || '—'" :title="row.message"></td>
+                            <td class="px-5 py-2.5 text-gray-300 text-xs cursor-pointer" @click="toggleExpand('error_samples', idx)">
+                              <template x-if="!isExpanded('error_samples', idx)">
+                                <span class="max-w-md truncate block" x-text="row.message || '—'" :title="row.message + ' (click to expand)'"></span>
+                              </template>
+                              <template x-if="isExpanded('error_samples', idx)">
+                                <span class="whitespace-pre-wrap break-all font-mono leading-relaxed" x-text="row.message || '—'"></span>
+                              </template>
+                            </td>
+                            <td class="px-5 py-2.5">
+                              <button x-show="report.analysis_id && row._entry_idx != null" @click="showContext(report.analysis_id, row._entry_idx)"
+                                class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                View
+                              </button>
+                            </td>
                           </tr>
                         </template>
                       </tbody>
@@ -1781,14 +2479,22 @@ function renderCharts(report) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source IP</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Context</th>
                       </tr></thead>
                       <tbody>
                         <template x-for="(row, idx) in report.tables.auth_failures_detail.slice(0, 30)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.timestamp || '—'"></td>
-                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs" x-text="row.source_ip || '—'"></td>
+                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs clickable" x-text="row.source_ip || '—'" @click="searchQuery = row.source_ip"></td>
                             <td class="px-5 py-2.5 text-gray-300 text-xs" x-text="row.user || '—'"></td>
                             <td class="px-5 py-2.5 text-gray-400 text-xs max-w-md truncate" x-text="row.message || '—'" :title="row.message"></td>
+                            <td class="px-5 py-2.5">
+                              <button x-show="report.analysis_id && row._entry_idx != null" @click="showContext(report.analysis_id, row._entry_idx)"
+                                class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                View
+                              </button>
+                            </td>
                           </tr>
                         </template>
                       </tbody>
@@ -1820,7 +2526,555 @@ function renderCharts(report) {
               </template>
             </div>
           </template>
+           </div>
+        </div>
+      </template>
+
+      <template x-if="view === 'comparison'">
+        <div class="fade-in space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Batch Comparison</h2>
+              <p class="text-gray-400 mt-1 text-sm" x-text="batchReports.length + ' report(s) analyzed'"></p>
+            </div>
+            <div class="flex gap-2">
+              <button @click="view='upload'; resetBatch()" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium">New Analysis</button>
+            </div>
           </div>
+
+          <template x-if="batchReports.length > 1">
+            <div class="bg-dark-800 border border-dark-600 rounded-xl p-5">
+              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Side-by-Side Comparison</h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead><tr class="border-b border-dark-600">
+                    <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase min-w-[120px]">Metric</th>
+                    <template x-for="(r, idx) in batchReports" :key="'hdr-'+idx">
+                      <th class="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase min-w-[140px]">
+                        <span class="text-accent-400" x-text="r.filename || ('File ' + (idx+1))"></span>
+                      </th>
+                    </template>
+                  </tr></thead>
+                  <tbody>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Log Type</td>
+                      <template x-for="(r, idx) in batchReports" :key="'type-'+idx">
+                        <td class="px-3 py-2 text-gray-300 text-xs" x-text="r.log_type_label || r.log_type || '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Total Lines</td>
+                      <template x-for="(r, idx) in batchReports" :key="'tl-'+idx">
+                        <td class="px-3 py-2 text-gray-300" x-text="r.total_lines != null ? r.total_lines.toLocaleString() : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Parsed</td>
+                      <template x-for="(r, idx) in batchReports" :key="'pr-'+idx">
+                        <td class="px-3 py-2 text-gray-300" x-text="r.parsed != null ? r.parsed.toLocaleString() : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Parse Errors</td>
+                      <template x-for="(r, idx) in batchReports" :key="'pe-'+idx">
+                        <td class="px-3 py-2" :class="r.parse_errors > 0 ? 'text-warning' : 'text-gray-400'" x-text="r.parse_errors || '0'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Health</td>
+                      <template x-for="(r, idx) in batchReports" :key="'hp-'+idx">
+                        <td class="px-3 py-2">
+                          <template x-if="r.summary && r.summary.health">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                              :class="{'bg-success/15 text-success': r.summary.health==='healthy', 'bg-warning/15 text-warning': r.summary.health==='degraded', 'bg-danger/15 text-danger': r.summary.health==='critical'}">
+                              <span class="w-1.5 h-1.5 rounded-full" :class="{'bg-success': r.summary.health==='healthy', 'bg-warning': r.summary.health==='degraded', 'bg-danger': r.summary.health==='critical'}"></span>
+                              <span x-text="r.summary.health"></span>
+                            </span>
+                          </template>
+                          <template x-if="!r.summary || !r.summary.health"><span class="text-gray-500 text-xs">—</span></template>
+                        </td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Requests</td>
+                      <template x-for="(r, idx) in batchReports" :key="'req-'+idx">
+                        <td class="px-3 py-2 text-white font-semibold" x-text="r.summary ? formatNum(r.summary.total_requests || r.summary.total_entries || r.summary.count) : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Unique IPs</td>
+                      <template x-for="(r, idx) in batchReports" :key="'uip-'+idx">
+                        <td class="px-3 py-2 text-gray-300" x-text="r.summary ? formatNum(r.summary.unique_ips || r.summary.unique_source_ips) : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Unique Paths</td>
+                      <template x-for="(r, idx) in batchReports" :key="'upath-'+idx">
+                        <td class="px-3 py-2 text-gray-300" x-text="r.summary ? formatNum(r.summary.unique_paths) : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Total Transfer</td>
+                      <template x-for="(r, idx) in batchReports" :key="'bytes-'+idx">
+                        <td class="px-3 py-2 text-gray-300" x-text="r.summary ? formatBytes(r.summary.total_bytes) : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Error Rate</td>
+                      <template x-for="(r, idx) in batchReports" :key="'err-'+idx">
+                        <td class="px-3 py-2" :class="(r.summary?.error_rate || 0) > 5 ? 'text-danger font-semibold' : (r.summary?.error_rate || 0) > 1 ? 'text-warning' : 'text-gray-300'" x-text="r.summary ? formatPct(r.summary.error_rate) : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Incidents</td>
+                      <template x-for="(r, idx) in batchReports" :key="'inc-'+idx">
+                        <td class="px-3 py-2" :class="(r.summary?.incident_count || 0) > 0 ? 'text-danger' : 'text-gray-400'" x-text="r.summary ? formatNum(r.summary.incident_count) : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Avg Response Time</td>
+                      <template x-for="(r, idx) in batchReports" :key="'avg-'+idx">
+                        <td class="px-3 py-2 text-gray-300" x-text="r.summary && r.summary.avg != null ? r.summary.avg + 's' : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Median (P50) RT</td>
+                      <template x-for="(r, idx) in batchReports" :key="'p50-'+idx">
+                        <td class="px-3 py-2 text-gray-300" x-text="r.summary && r.summary.p50 != null ? r.summary.p50 + 's' : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">P95 Response Time</td>
+                      <template x-for="(r, idx) in batchReports" :key="'p95-'+idx">
+                        <td class="px-3 py-2" :class="(r.summary?.p95 || 0) > 30 ? 'text-danger font-semibold' : (r.summary?.p95 || 0) > 10 ? 'text-warning' : 'text-gray-300'" x-text="r.summary && r.summary.p95 != null ? r.summary.p95 + 's' : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">P99 Response Time</td>
+                      <template x-for="(r, idx) in batchReports" :key="'p99-'+idx">
+                        <td class="px-3 py-2" :class="(r.summary?.p99 || 0) > 30 ? 'text-danger font-semibold' : (r.summary?.p99 || 0) > 10 ? 'text-warning' : 'text-gray-300'" x-text="r.summary && r.summary.p99 != null ? r.summary.p99 + 's' : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Max Response Time</td>
+                      <template x-for="(r, idx) in batchReports" :key="'max-'+idx">
+                        <td class="px-3 py-2" :class="(r.summary?.max || 0) > 30 ? 'text-danger font-semibold' : (r.summary?.max || 0) > 10 ? 'text-warning' : 'text-gray-300'" x-text="r.summary && r.summary.max != null ? r.summary.max + 's' : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Time Range</td>
+                      <template x-for="(r, idx) in batchReports" :key="'tr-'+idx">
+                        <td class="px-3 py-2 text-gray-500 text-xs whitespace-nowrap" x-text="r.time_range && r.time_range.start ? r.time_range.start + ' — ' + r.time_range.end : '—'"></td>
+                      </template>
+                    </tr>
+                    <tr class="border-b border-dark-700/50">
+                      <td class="px-3 py-2 text-gray-400 font-medium text-xs">Processing Time</td>
+                      <template x-for="(r, idx) in batchReports" :key="'ms-'+idx">
+                        <td class="px-3 py-2 text-gray-400" x-text="r.processing_ms != null ? r.processing_ms + 'ms' : '—'"></td>
+                      </template>
+                    </tr>
+                    <template x-if="batchReports.some(r => r.log_type === 'nginx_access')">
+                      <tr class="border-b border-dark-700/50">
+                        <td class="px-3 py-2 text-gray-400 font-medium text-xs">Excluded IPs</td>
+                        <template x-for="(r, idx) in batchReports" :key="'exc-'+idx">
+                          <td class="px-3 py-2 text-gray-500 text-xs" x-text="r.excluded_ips && r.excluded_ips.length ? r.excluded_ips.join(', ') : '—'"></td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+
+          <template x-for="(r, idx) in batchReports" :key="idx">
+            <div class="bg-dark-800 border border-dark-600 rounded-xl overflow-hidden">
+              <div class="px-5 py-3 border-b border-dark-600 flex items-center justify-between">
+                <h4 class="text-sm font-medium text-gray-300 flex items-center gap-2">
+                  <svg class="w-4 h-4" style="color:var(--c-accent-mid)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  <span x-text="r.filename || 'Report ' + (idx + 1)"></span>
+                </h4>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-gray-500" x-text="r.log_type_label || r.log_type || 'Unknown type'"></span>
+                  <template x-if="r.summary && r.summary.health">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                      :class="{'bg-success/15 text-success': r.summary.health==='healthy', 'bg-warning/15 text-warning': r.summary.health==='degraded', 'bg-danger/15 text-danger': r.summary.health==='critical'}">
+                      <span class="w-1.5 h-1.5 rounded-full" :class="{'bg-success': r.summary.health==='healthy', 'bg-warning': r.summary.health==='degraded', 'bg-danger': r.summary.health==='critical'}"></span>
+                      <span x-text="r.summary.health"></span>
+                    </span>
+                  </template>
+                </div>
+              </div>
+              <div class="p-5 space-y-4">
+                <template x-if="r.error"><p class="text-danger text-sm" x-text="r.error"></p></template>
+                <template x-if="!r.error && r.summary">
+                  <div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
+                      <template x-for="card in [
+                        { show: true, label: 'Requests', value: formatNum(r.summary.total_requests || r.summary.total_entries || r.summary.count), cls: '' },
+                        { show: r.summary.unique_ips != null || r.summary.unique_source_ips != null, label: 'Unique IPs', value: formatNum(r.summary.unique_ips || r.summary.unique_source_ips), cls: '' },
+                        { show: r.summary.unique_paths != null, label: 'Unique Paths', value: formatNum(r.summary.unique_paths), cls: '' },
+                        { show: r.summary.total_bytes != null, label: 'Transfer', value: formatBytes(r.summary.total_bytes), cls: '' },
+                        { show: r.summary.error_rate != null && r.summary.error_rate > 0, label: 'Error Rate', value: formatPct(r.summary.error_rate), cls: r.summary.error_rate > 5 ? 'text-danger' : r.summary.error_rate > 1 ? 'text-warning' : '' },
+                        { show: r.summary.incident_count != null && r.summary.incident_count > 0, label: 'Incidents', value: formatNum(r.summary.incident_count), cls: 'text-danger' },
+                        { show: r.summary.avg != null, label: 'Avg RT', value: r.summary.avg + 's', cls: '' },
+                        { show: r.summary.p50 != null, label: 'P50 RT', value: r.summary.p50 + 's', cls: '' },
+                        { show: r.summary.p95 != null, label: 'P95 RT', value: r.summary.p95 + 's', cls: r.summary.p95 > 30 ? 'text-danger' : r.summary.p95 > 10 ? 'text-warning' : '' },
+                        { show: r.summary.p99 != null, label: 'P99 RT', value: r.summary.p99 + 's', cls: r.summary.p99 > 30 ? 'text-danger' : r.summary.p99 > 10 ? 'text-warning' : '' },
+                        { show: r.summary.max != null, label: 'Max RT', value: r.summary.max + 's', cls: r.summary.max > 30 ? 'text-danger' : r.summary.max > 10 ? 'text-warning' : '' },
+                        { show: r.summary.slow_queries != null && r.summary.slow_queries > 0, label: 'Slow Queries', value: formatNum(r.summary.slow_queries), cls: 'text-warning' },
+                        { show: r.summary.auth_failures != null && r.summary.auth_failures > 0, label: 'Auth Failures', value: formatNum(r.summary.auth_failures), cls: 'text-danger' },
+                        { show: r.summary.errors != null && r.summary.errors > 0, label: 'Errors', value: formatNum(r.summary.errors), cls: 'text-danger' },
+                        { show: r.summary.warnings != null && r.summary.warnings > 0, label: 'Warnings', value: formatNum(r.summary.warnings), cls: 'text-warning' },
+                        { show: r.summary.checkpoints != null && r.summary.checkpoints > 0, label: 'Checkpoints', value: formatNum(r.summary.checkpoints), cls: '' },
+                      ].filter(c => c.show)" :key="card.label">
+                        <div class="bg-dark-700 rounded-lg p-3 border border-dark-600">
+                          <p class="text-xs text-gray-500 uppercase tracking-wider mb-1" x-text="card.label"></p>
+                          <p class="text-lg font-bold text-white" :class="card.cls" x-text="card.value"></p>
+                        </div>
+                      </template>
+                    </div>
+
+                    <template x-if="r.charts && r.charts.hourly_timeline && r.charts.hourly_timeline.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Hourly Timeline</h5>
+                        <div class="relative" style="height:180px"><canvas :id="'chart-batch-timeline-' + idx" data-chart></canvas></div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.charts && r.charts.status_distribution && r.charts.status_distribution.length">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="bg-dark-700 rounded-lg border border-dark-600 p-4">
+                          <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Status Distribution</h5>
+                          <div class="relative" style="height:180px"><canvas :id="'chart-batch-status-' + idx" data-chart></canvas></div>
+                        </div>
+                        <div class="bg-dark-700 rounded-lg border border-dark-600 p-4">
+                          <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Method Distribution</h5>
+                          <div class="relative" style="height:180px"><canvas :id="'chart-batch-methods-' + idx" data-chart></canvas></div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.charts && r.charts.top_endpoints && r.charts.top_endpoints.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Top Endpoints</h5>
+                        <div class="relative" style="height:180px"><canvas :id="'chart-batch-endpoints-' + idx" data-chart></canvas></div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.charts && r.charts.top_ips && r.charts.top_ips.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Top IPs</h5>
+                        <div class="relative" style="height:180px"><canvas :id="'chart-batch-ips-' + idx" data-chart></canvas></div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.charts && r.charts.level_distribution && r.charts.level_distribution.length">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="bg-dark-700 rounded-lg border border-dark-600 p-4">
+                          <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Level Distribution</h5>
+                          <div class="relative" style="height:180px"><canvas :id="'chart-batch-levels-' + idx" data-chart></canvas></div>
+                        </div>
+                        <template x-if="r.charts.top_messages && r.charts.top_messages.length">
+                          <div class="bg-dark-700 rounded-lg border border-dark-600 p-4">
+                            <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Top Messages</h5>
+                            <div class="relative" style="height:180px"><canvas :id="'chart-batch-msgs-' + idx" data-chart></canvas></div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <template x-if="r.tables && r.tables.status_codes && r.tables.status_codes.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Status Codes</h5>
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs">
+                            <thead><tr class="border-b border-dark-600">
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Status</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Count</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">%</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase w-2/5">Bar</th>
+                            </tr></thead>
+                            <tbody>
+                              <template x-for="row in r.tables.status_codes" :key="row.code">
+                                <tr class="border-b border-dark-600/50">
+                                  <td class="px-3 py-1.5">
+                                    <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium"
+                                      :class="{'bg-success/15 text-success': String(row.code).startsWith('2'), 'bg-accent-500/15 text-accent-400': String(row.code).startsWith('3'), 'bg-warning/15 text-warning': String(row.code).startsWith('4'), 'bg-danger/15 text-danger': String(row.code).startsWith('5')}" x-text="row.code"></span>
+                                  </td>
+                                  <td class="px-3 py-1.5 text-gray-300" x-text="formatNum(row.count)"></td>
+                                  <td class="px-3 py-1.5 text-gray-400" x-text="formatPct(row.pct)"></td>
+                                  <td class="px-3 py-1.5">
+                                    <div class="w-full bg-dark-600 rounded-full h-1.5 overflow-hidden">
+                                      <div class="h-1.5 rounded-full transition-all" :class="String(row.code).startsWith('2') ? 'bg-success' : String(row.code).startsWith('4') ? 'bg-warning' : String(row.code).startsWith('5') ? 'bg-danger' : 'bg-accent-500'" :style="'width:' + row.pct + '%'"></div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.tables && r.tables.endpoint_performance && r.tables.endpoint_performance.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Endpoint Performance</h5>
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs">
+                            <thead><tr class="border-b border-dark-600">
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Endpoint</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Count</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Avg RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">P95 RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Max RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Error Rate</th>
+                            </tr></thead>
+                            <tbody>
+                              <template x-for="row in r.tables.endpoint_performance.slice(0, 10)" :key="row.path">
+                                <tr class="border-b border-dark-600/50">
+                                  <td class="px-3 py-1.5 text-accent-400 font-mono text-xs max-w-[200px] truncate" x-text="row.path" :title="row.path"></td>
+                                  <td class="px-3 py-1.5 text-gray-300" x-text="formatNum(row.count)"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.rt.avg > 30, 'text-warning': row.rt.avg > 10}" x-text="row.rt.avg != null ? row.rt.avg + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.rt.p95 > 30, 'text-warning': row.rt.p95 > 10}" x-text="row.rt.p95 != null ? row.rt.p95 + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.rt.max > 30}" x-text="row.rt.max != null ? row.rt.max + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.error_rate > 5, 'text-warning': row.error_rate > 1}" x-text="row.error_rate != null ? row.error_rate + '%' : '—'"></td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.tables && r.tables.ip_details && r.tables.ip_details.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">IP Details</h5>
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs">
+                            <thead><tr class="border-b border-dark-600">
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">IP</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Requests</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Bytes</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Avg RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">P95 RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Max RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Status Codes</th>
+                            </tr></thead>
+                            <tbody>
+                              <template x-for="row in r.tables.ip_details.slice(0, 15)" :key="row.ip">
+                                <tr class="border-b border-dark-600/50">
+                                  <td class="px-3 py-1.5 text-accent-400 font-mono text-xs" x-text="row.ip"></td>
+                                  <td class="px-3 py-1.5 text-gray-300" x-text="formatNum(row.total)"></td>
+                                  <td class="px-3 py-1.5 text-gray-400" x-text="formatBytes(row.total_bytes)"></td>
+                                  <td class="px-3 py-1.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-warning': row.p95_rt > 10}" x-text="row.p95_rt != null ? row.p95_rt + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.max_rt > 30}" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' ') : '—'"></td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.tables && r.tables.incidents && r.tables.incidents.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Incidents</h5>
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs">
+                            <thead><tr class="border-b border-dark-600">
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Period</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Severity</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Avg RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">P95 RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Max RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Requests</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Slow</th>
+                            </tr></thead>
+                            <tbody>
+                              <template x-for="(row, ri) in r.tables.incidents" :key="ri">
+                                <tr class="border-b border-dark-600/50">
+                                  <td class="px-3 py-1.5 text-accent-400 font-mono text-xs" x-text="row.period"></td>
+                                  <td class="px-3 py-1.5">
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium"
+                                      :class="{'bg-warning/15 text-warning': row.severity==='degraded', 'bg-danger/15 text-danger': row.severity==='critical'}">
+                                      <span x-text="row.severity"></span>
+                                    </span>
+                                  </td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.avg_rt > 30, 'text-warning': row.avg_rt > 10}" x-text="row.avg_rt + 's'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.p95_rt > 30}" x-text="row.p95_rt + 's'"></td>
+                                  <td class="px-3 py-1.5 text-danger font-semibold" x-text="row.max_rt + 's'"></td>
+                                  <td class="px-3 py-1.5 text-gray-300" x-text="formatNum(row.request_count)"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.slow_count > 0}" x-text="row.slow_count"></td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.tables && r.tables.error_samples && r.tables.error_samples.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Error Samples</h5>
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs">
+                            <thead><tr class="border-b border-dark-600">
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Time</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Level</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Message</th>
+                            </tr></thead>
+                            <tbody>
+                              <template x-for="(row, ei) in r.tables.error_samples.slice(0, 10)" :key="ei">
+                                <tr class="border-b border-dark-600/50">
+                                  <td class="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.timestamp || '—'"></td>
+                                  <td class="px-3 py-1.5">
+                                    <span x-show="row.level" class="inline-flex px-1 py-0.5 rounded text-xs font-medium"
+                                      :class="{'bg-danger/15 text-danger': (row.level||'').match(/error|crit|emerg|fatal/i), 'bg-warning/15 text-warning': (row.level||'').match(/warn/i)}" x-text="row.level"></span>
+                                  </td>
+                                  <td class="px-3 py-1.5 text-gray-400 text-xs max-w-md truncate" x-text="row.message || '—'" :title="row.message"></td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.tables && r.tables.auth_failures_detail && r.tables.auth_failures_detail.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4 mb-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Auth Failures</h5>
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs">
+                            <thead><tr class="border-b border-dark-600">
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Time</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Source IP</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">User</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Message</th>
+                            </tr></thead>
+                            <tbody>
+                              <template x-for="(row, fi) in r.tables.auth_failures_detail.slice(0, 10)" :key="fi">
+                                <tr class="border-b border-dark-600/50">
+                                  <td class="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.timestamp || '—'"></td>
+                                  <td class="px-3 py-1.5 text-accent-400 font-mono text-xs" x-text="row.source_ip || '—'"></td>
+                                  <td class="px-3 py-1.5 text-gray-300 text-xs" x-text="row.user || '—'"></td>
+                                  <td class="px-3 py-1.5 text-gray-400 text-xs max-w-md truncate" x-text="row.message || '—'" :title="row.message"></td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="r.tables && r.tables.hourly_performance && r.tables.hourly_performance.length">
+                      <div class="bg-dark-700 rounded-lg border border-dark-600 p-4">
+                        <h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Hourly Performance</h5>
+                        <div class="overflow-x-auto">
+                          <table class="w-full text-xs">
+                            <thead><tr class="border-b border-dark-600">
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Hour</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Requests</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Avg RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">P95 RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Max RT</th>
+                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Status</th>
+                            </tr></thead>
+                            <tbody>
+                              <template x-for="(row, hi) in r.tables.hourly_performance" :key="hi">
+                                <tr class="border-b border-dark-600/50">
+                                  <td class="px-3 py-1.5 text-accent-400 font-mono text-xs" x-text="row.hour"></td>
+                                  <td class="px-3 py-1.5 text-gray-300" x-text="formatNum(row.requests)"></td>
+                                  <td class="px-3 py-1.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-warning': row.p95_rt > 10}" x-text="row.p95_rt != null ? row.p95_rt + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5" :class="{'text-danger': row.max_rt > 30}" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
+                                  <td class="px-3 py-1.5">
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium"
+                                      :class="{'bg-success/15 text-success': row.status==='healthy', 'bg-warning/15 text-warning': row.status==='degraded', 'bg-danger/15 text-danger': row.status==='critical'}">
+                                      <span x-text="row.status"></span>
+                                    </span>
+                                  </td>
+                                </tr>
+                              </template>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="view === 'correlation'">
+        <div class="fade-in space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Cross-Reference Timeline</h2>
+              <p class="text-gray-400 mt-1 text-sm" x-text="correlationData ? correlationData.total_events + ' events from ' + correlationData.sources.length + ' source(s)' : 'Loading...'"></p>
+            </div>
+            <div class="flex gap-2">
+              <button @click="view='upload'; resetBatch()" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium">New Analysis</button>
+            </div>
+          </div>
+
+          <template x-if="correlationData">
+            <div>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <template x-for="(count, type) in correlationData.type_counts" :key="type">
+                  <div class="bg-dark-800 border border-dark-600 rounded-xl p-4">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1" x-text="type.replace('_', ' ')"></p>
+                    <p class="text-xl font-bold text-white" x-text="count.toLocaleString()"></p>
+                  </div>
+                </template>
+                <div class="bg-dark-800 border border-dark-600 rounded-xl p-4">
+                  <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Events</p>
+                  <p class="text-xl font-bold text-accent-400" x-text="correlationData.total_events.toLocaleString()"></p>
+                </div>
+              </div>
+
+              <div class="bg-dark-800 border border-dark-600 rounded-xl overflow-hidden">
+                <div class="px-5 py-3 border-b border-dark-600">
+                  <h3 class="text-sm font-medium text-gray-300">Event Timeline</h3>
+                </div>
+                <div class="overflow-x-auto table-scroll max-h-[600px] overflow-y-auto">
+                  <table class="w-full text-sm">
+                    <thead class="sticky top-0"><tr class="border-b border-dark-600" style="background:var(--c-surface-raised)">
+                      <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                      <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                      <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase">Summary</th>
+                    </tr></thead>
+                    <tbody>
+                      <template x-for="(ev, idx) in correlationData.timeline.slice(0, 500)" :key="idx">
+                        <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
+                          <td class="px-4 py-2.5 text-accent-400 font-mono text-xs whitespace-nowrap" x-text="ev.timestamp"></td>
+                          <td class="px-4 py-2.5 text-gray-300 text-xs" x-text="ev.source"></td>
+                          <td class="px-4 py-2.5">
+                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
+                              :class="{
+                                'bg-accent-500/15 text-accent-400': ev.type === 'nginx_access',
+                                'bg-danger/15 text-danger': ev.type === 'nginx_error',
+                                'bg-success/15 text-success': ev.type === 'syslog',
+                                'bg-warning/15 text-warning': ev.type === 'container',
+                                'bg-blue-500/15 text-blue-400': ev.type === 'api_backend',
+                                'bg-purple-500/15 text-purple-400': ev.type === 'postgres',
+                              }" x-text="ev.type.replace('_', ' ')"></span>
+                          </td>
+                          <td class="px-4 py-2.5 text-gray-400 text-xs max-w-md truncate" x-text="ev.summary" :title="ev.summary"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </template>
     </main>
@@ -1836,8 +3090,53 @@ function renderCharts(report) {
   id="toast-container"
   aria-live="polite" role="status"
   class="fixed bottom-4 right-4 z-50 max-w-sm px-4 py-3 rounded-lg shadow-lg border text-sm flex items-center gap-2"
-  :class="{'bg-accent-500/10 border-accent-500/30 text-accent-400': toastType==='info', 'bg-success/10 border-success/30 text-success': toastType==='success', 'bg-warning/10 border-warning/30 text-warning': toastType==='warning', 'bg-danger/10 border-danger/30 text-danger': toastType==='error'}">
+  :class="{'bg-accent-500/10 border-accent-500/30 text-accent-400': toastType==='info', 'bg-success/10 border-success/30 text-success': toastType==='success', 'bg-warning/10 border-warning/30 text-warning': toastType==='success', 'bg-danger/10 border-danger/30 text-danger': toastType==='error'}">
   <span x-text="toastMessage"></span>
+</div>
+
+<div x-show="contextPanel || contextLoading || contextError" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+  class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
+  @click.self="closeContext()">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-2xl max-h-[80vh] mx-4 mb-4 sm:mb-0 bg-dark-800 border border-dark-600 rounded-2xl shadow-2xl overflow-hidden flex flex-col fade-in"
+    @click.stop>
+    <div class="flex items-center justify-between px-5 py-3 border-b border-dark-600">
+      <h3 class="text-sm font-semibold text-gray-300 flex items-center gap-2">
+        <svg class="w-4 h-4" style="color:var(--c-accent-mid)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        Context View
+      </h3>
+      <button @click="closeContext()" class="text-gray-500 hover:text-white transition p-1 rounded-lg hover:bg-dark-700">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <template x-if="contextLoading">
+        <div class="flex flex-col items-center py-12">
+          <div class="spinner mb-4"></div>
+          <p class="text-gray-400 text-sm">Loading context...</p>
+        </div>
+      </template>
+      <template x-if="contextError">
+        <div class="text-center py-12">
+          <p class="text-danger text-sm" x-text="contextError"></p>
+          <button @click="closeContext()" class="mt-3 px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white transition text-sm">Close</button>
+        </div>
+      </template>
+      <template x-if="contextPanel && !contextLoading && !contextError">
+        <div>
+          <p class="text-xs text-gray-500 mb-3" x-text="'Line ' + (contextPanel.center_line + 1) + ' (showing surrounding context)'"></p>
+          <div class="font-mono text-xs leading-relaxed rounded-lg overflow-hidden border border-dark-600" style="background:var(--c-surface)">
+            <template x-for="(line, idx) in contextPanel.context" :key="idx">
+              <div class="flex" :class="line.is_match ? 'bg-accent-500/10 border-l-2 border-accent-500' : 'border-l-2 border-transparent'">
+                <span class="px-3 py-1 text-right select-none shrink-0 w-12" :class="line.is_match ? 'text-accent-400' : 'text-gray-600'" x-text="line.line_num + 1"></span>
+                <span class="px-3 py-1 flex-1 whitespace-pre-wrap break-all" :class="line.is_match ? 'text-white font-medium' : 'text-gray-400'" x-text="line.content"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
 </div>
 
 </body>

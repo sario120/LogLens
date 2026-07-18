@@ -238,6 +238,8 @@ class NginxAccessParser(BaseParser):
             "parse_errors": self.errors,
             "processing_ms": self.processing_ms,
             "time_range": {"start": self.start_time, "end": self.end_time},
+            "_entries": self.entries,
+            "_line_numbers": self._line_numbers,
             "summary": {
                 "total_requests": parsed,
                 "unique_ips": len(ip_counter),

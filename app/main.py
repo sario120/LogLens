@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import time
+import uuid
 from collections import defaultdict
 from pathlib import Path
 
@@ -22,6 +23,31 @@ app = FastAPI(title="LogLens", version="1.0.0", docs_url=None, redoc_url=None)
 BASE = Path(__file__).resolve().parent.parent
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
+
+# --- analysis context cache (5 min TTL) ---
+_analysis_cache: dict[str, dict] = {}  # id -> {"parser": BaseParser, "report": dict, "ts": float}
+_CACHE_TTL = 300  # 5 minutes
+_CACHE_CLEANUP_INTERVAL = 60
+_last_cache_cleanup: float = time.time()
+
+# --- analysis context cache ---
+def _cleanup_analysis_cache():
+    global _last_cache_cleanup
+    now = time.time()
+    if now - _last_cache_cleanup < _CACHE_CLEANUP_INTERVAL:
+        return
+    _last_cache_cleanup = now
+    expired = [aid for aid, entry in _analysis_cache.items() if now - entry["ts"] > _CACHE_TTL]
+    for aid in expired:
+        del _analysis_cache[aid]
+
+
+def _cache_analysis(parser, report: dict) -> str:
+    _cleanup_analysis_cache()
+    analysis_id = uuid.uuid4().hex[:16]
+    _analysis_cache[analysis_id] = {"parser": parser, "report": report, "ts": time.time()}
+    return analysis_id
+
 
 # --- rate limiter: per-IP, sliding window ---
 _auth_attempts: dict[str, list[float]] = defaultdict(list)
@@ -167,5 +193,161 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
         raise HTTPException(status_code=400, detail="No log content provided")
 
     skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
-    report = parse_and_analyze(raw, log_type, exclude_ips=skip or None)
+    report, parser = parse_and_analyze(raw, log_type, exclude_ips=skip or None, return_parser=True)
+    if report.get("error"):
+        return JSONResponse(report)
+    analysis_id = _cache_analysis(parser, report)
+    report["analysis_id"] = analysis_id
     return JSONResponse(report)
+
+
+@app.get("/api/context/{analysis_id}/{entry_idx}")
+async def get_context(analysis_id: str, entry_idx: int, request: Request, before: int = 5, after: int = 5):
+    auth_err = _require_auth(request)
+    if auth_err:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    _cleanup_analysis_cache()
+    cached = _analysis_cache.get(analysis_id)
+    if not cached:
+        raise HTTPException(status_code=404, detail="Analysis not found or expired (5 min TTL)")
+    context = cached["parser"].get_context(entry_idx, before=before, after=after)
+    if "error" in context:
+        raise HTTPException(status_code=400, detail=context["error"])
+    return JSONResponse(context)
+
+
+@app.post("/api/analyze-batch")
+async def analyze_batch(request: Request):
+    auth_err = _require_auth(request)
+    if auth_err:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    files = body.get("files", [])
+    log_type = body.get("log_type", "auto")
+    exclude_ips = body.get("exclude_ips", "")
+    label = body.get("label", "")
+
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
+    reports = []
+    for f in files:
+        content = f.get("content", "")
+        fname = f.get("name", "unknown")
+        if not content.strip():
+            reports.append({"error": f"No content in {fname}", "filename": fname})
+            continue
+        r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
+        if not r.get("error"):
+            aid = _cache_analysis(p, r)
+            r["analysis_id"] = aid
+        r["filename"] = fname
+        reports.append(r)
+
+    return JSONResponse({"reports": reports, "count": len(reports), "label": label})
+
+
+@app.post("/api/analyze-correlate")
+async def analyze_correlate(request: Request):
+    auth_err = _require_auth(request)
+    if auth_err:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    files = body.get("files", [])
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    skip = []
+    exclude_ips = body.get("exclude_ips", "")
+    if exclude_ips:
+        skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()]
+
+    parsed_files = []
+    for f in files:
+        content = f.get("content", "")
+        fname = f.get("name", "unknown")
+        log_type = f.get("log_type", "auto")
+        if not content.strip():
+            continue
+        r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
+        if r.get("error"):
+            continue
+        r["filename"] = fname
+        parsed_files.append({"report": r, "parser": p, "filename": fname})
+
+    if not parsed_files:
+        raise HTTPException(status_code=400, detail="No valid logs to correlate")
+
+    all_entries = []
+    for pf in parsed_files:
+        report = pf["report"]
+        filename = pf["filename"]
+        log_type = report.get("detected_type", "unknown")
+        for i, entry in enumerate(report.get("_entries", [])):
+            all_entries.append({
+                "timestamp": entry.get("timestamp", ""),
+                "type": log_type,
+                "source": filename,
+                "entry": entry,
+                "line_num": report.get("_line_numbers", [])[i] if i < len(report.get("_line_numbers", [])) else 0,
+            })
+
+    for entry in all_entries:
+        entry["_sort_key"] = entry["timestamp"]
+    all_entries.sort(key=lambda x: x["_sort_key"])
+
+    timeline = []
+    for entry in all_entries:
+        ts = entry["timestamp"]
+        etype = entry["type"]
+        source = entry["source"]
+        e = entry["entry"]
+        summary = _make_entry_summary(e, etype)
+        timeline.append({
+            "timestamp": ts,
+            "type": etype,
+            "source": source,
+            "summary": summary,
+            "entry": e,
+        })
+
+    type_counts = defaultdict(int)
+    for entry in all_entries:
+        type_counts[entry["type"]] += 1
+
+    return JSONResponse({
+        "correlation": {
+            "timeline": timeline,
+            "total_events": len(all_entries),
+            "type_counts": dict(type_counts),
+            "sources": [pf["filename"] for pf in parsed_files],
+            "reports": [pf["report"] for pf in parsed_files],
+        }
+    })
+
+
+def _make_entry_summary(entry: dict, log_type: str) -> str:
+    if log_type == "nginx_access":
+        return f"{entry.get('method', '?')} {entry.get('path', '?')} → {entry.get('status', '?')}"
+    elif log_type == "nginx_error":
+        return entry.get("message", str(entry)[:120])
+    elif log_type == "syslog":
+        return f"{entry.get('process', '?')}: {entry.get('message', str(entry)[:100])}"
+    elif log_type == "container":
+        return f"[{entry.get('stream', '?')}] {entry.get('log', str(entry)[:100])}"
+    elif log_type == "api_backend":
+        return f"{entry.get('level', '?')}: {entry.get('message', str(entry)[:100])}"
+    elif log_type == "postgres":
+        return f"{entry.get('level', '?')}: {entry.get('message', str(entry)[:100])}"
+    return str(entry)[:120]

@@ -83,6 +83,8 @@ class ContainerLogParser(BaseParser):
             "parse_errors": self.errors,
             "processing_ms": self.processing_ms,
             "time_range": {"start": self.start_time, "end": self.end_time},
+            "_entries": self.entries,
+            "_line_numbers": self._line_numbers,
             "summary": {
                 "total_entries": parsed,
                 "stdout_count": stream_counter.get("stdout", 0),
@@ -108,7 +110,7 @@ class ContainerLogParser(BaseParser):
                     for k, v in level_counter.most_common()
                 ],
                 "error_samples": [
-                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200]}
+                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200], "_entry_idx": self.entries.index(e)}
                     for e in error_entries[:25]
                 ],
             },

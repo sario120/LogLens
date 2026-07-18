@@ -133,6 +133,8 @@ class ApiBackendParser(BaseParser):
             "parse_errors": self.errors,
             "processing_ms": self.processing_ms,
             "time_range": {"start": self.start_time, "end": self.end_time},
+            "_entries": self.entries,
+            "_line_numbers": self._line_numbers,
             "summary": {
                 "total_entries": parsed,
                 "error_count": sum(level_counter.get(lv, 0) for lv in ("error", "fatal", "critical")),
@@ -169,7 +171,7 @@ class ApiBackendParser(BaseParser):
                 ],
                 "endpoint_details": endpoint_table[:20],
                 "error_samples": [
-                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200]}
+                    {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200], "_entry_idx": self.entries.index(e)}
                     for e in error_entries[:25]
                 ],
             },
