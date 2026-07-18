@@ -3,107 +3,127 @@ LogLens — Product Feature Enhancements
 Internal / offline self-hosted log analysis portal
 
 ================================================================================
+STATUS LEGEND
+================================================================================
+  [DONE]       Feature is implemented and working
+  [PARTIAL]    Partially implemented with gaps remaining
+  [TODO]       Not yet implemented
+
+================================================================================
 P0 — Critical (Next Sprint)
 ================================================================================
 
-1. Report History & Sessions
-   - Store past analyses in browser IndexedDB (no server-side DB needed)
-   - Report history view: browse, search, reopen past reports
-   - Auto-save paste content so refresh doesn't lose work
-   - Named sessions with labels (e.g. "Post-deploy perf check 2026-07-18")
+1. Report History & Sessions                              [DONE]
+   ✓ Store past analyses in browser IndexedDB
+   ✓ Report history view: browse, search, reopen past reports
+   ✓ Auto-save paste content so refresh doesn't lose work
+   ✓ Named sessions with labels
 
-2. Search, Filter & Sort Within Reports
-   - Client-side filtering on every table column (IP, path, status, error)
-   - Full-text search across the entire report
-   - Sortable columns (click header to sort by count, duration, etc.)
-   - Click-to-filter: click an endpoint/IP in chart/table → filtered view
-   - Expandable rows: click an error to see surrounding context lines
+2. Search, Filter & Sort Within Reports                   [DONE]
+   ✓ Client-side filtering on every table column
+   ✓ Full-text search across the entire report
+   ✓ Sortable columns (click header to sort)
+   ✓ Click-to-filter: click endpoint/IP → filtered view
+   ✓ Expandable rows for error samples
 
 ================================================================================
 P1 — High Priority (Next)
 ================================================================================
 
-3. Multi-File & Batch Comparison
-   - Upload multiple files side-by-side or merged into one report
-   - Diff view: compare error rates, p95 latency, top errors between two
-     time periods or deployments
-   - Aggregate dashboard: upload a directory of logs (e.g. a week of nginx
-     access logs) for a unified report
+3. Multi-File & Batch Comparison                          [DONE]
+   ✓ Upload multiple files side-by-side or merged
+   ✓ Side-by-side comparison table (18 metrics per file)
+   ✓ Diff view: compare error rates, latency, etc.
 
-4. Raw Log Browser / Context Viewer
-   - Embedded log viewer with syntax highlighting
-   - Jump to context: click any report entry (error, IP, endpoint) to see
-     surrounding raw lines
-   - Search within raw logs with highlighting
+4. Raw Log Browser / Context Viewer                       [DONE]
+   ✓ Jump to context: click error/entry to see surrounding raw lines
+   ✓ Context modal with line numbers, highlighted match line
+   ✓ Works for error samples, auth failures
 
-5. Cross-Reference / Correlation View
-   - Upload access + error + backend logs together; tool finds related
-     entries by timestamp
-   - Trace ID / request ID linking across parsers
-   - Scrollable timeline view showing all log streams aligned by timestamp
+5. Cross-Reference / Correlation View                     [DONE]
+   ✓ Upload multiple log types together
+   ✓ Merged timeline sorted by timestamp
+   ✓ Color-coded badges per log type
+   ✓ 500-event capped timeline
 
 ================================================================================
 P2 — Medium Priority (Soon)
 ================================================================================
 
-6. Additional Log Format Support
-   - HAProxy (HTTP/tcp logs with timing, backend server, retry counts)
-   - MySQL/MariaDB (slow query log, general log, error log)
-   - Apache HTTPD (combined access + error logs)
-   - Systemd journal (journalctl --output=json or short format)
-   - Caddy (JSON access logs)
-   - Generic CSV/delimited parser (user-specified column names & types)
+6. Additional Log Format Support                          [TODO]
+   [ ] HAProxy (HTTP/tcp logs with timing, backend server)
+   [ ] MySQL/MariaDB (slow query log, general log, error log)
+   [ ] Apache HTTPD (combined access + error logs)
+   [ ] Systemd journal (journalctl --output=json / short)
+   [ ] Caddy (JSON access logs)
+   [ ] Generic CSV/delimited parser (user-specified columns)
 
-7. Improved Auto-Detection
-   - Configurable sample size (not hardcoded to first 50 lines)
-   - Hybrid report: if multiple log types detected, split and analyze each
-     section separately
-   - Confidence indicator in the UI for auto-detection accuracy
-   - Manual parser override with format hints
+7. Improved Auto-Detection                                [PARTIAL]
+   ✓ Configurable sample size (LOGS_PORTAL_DETECT_SAMPLE_SIZE)
+   ✓ Confidence indicator in UI (green/yellow/red badge)
+   ✓ Detection scores returned in report
+   ✓ Manual parser override dropdown
+   [ ] Hybrid reports: split by type if multiple detected
 
-8. Advanced PostgreSQL Analysis
-   - Query normalization (replace literal values with ? to group similar queries)
-   - Lock detection (parse pg_locks wait events)
-   - Autovacuum analysis (frequency, dead tuple ratios)
-   - Replication lag detection
+8. Advanced PostgreSQL Analysis                           [DONE]
+   ✓ Query normalization (literals → ?, groups similar stmts)
+   ✓ Lock detection (deadlock/timeout/wait events + hourly)
+   ✓ Autovacuum analysis (dead/live tuples, by-table, hourly)
+   ✓ Replication lag detection (lag stats, hourly)
+   ✓ Checkpoint metrics (write/sync/total, buffers)
+   ✓ Duration stats (p50/p95/p99), slow queries, histograms
 
-9. Data Sanitization & Redaction
-   - Selective redaction of IPs, usernames, query params
-   - Redaction presets for common patterns
-   - Export PDF/JSON with redactions applied
+9. Data Sanitization & Redaction                          [TODO]
+   [ ] Selective redaction of IPs (mask not exclude)
+   [ ] Redaction of usernames, query parameters
+   [ ] Redaction presets for common patterns
+   [ ] Export PDF/JSON with redactions applied
 
 ================================================================================
 P3 — Nice to Have
 ================================================================================
 
-10. CLI Mode (Headless)
-    - CLI entry point: loglens analyze --file access.log --type nginx_access --json
-    - Same parsers, output JSON to stdout for piping into jq or other tools
-    - Reuse FastAPI app with a CLI wrapper
+10. CLI Mode (Headless)                                   [TODO]
+    [ ] CLI entry: loglens analyze --file access.log --type nginx_access --json
+    [ ] Reuse existing parsers, JSON output to stdout
+    [ ] Pipe-able for use with jq or other tools
 
-11. Custom Regex / User-Defined Parsers
-    - UI-based custom parser builder: upload sample, highlight fields,
-      name them, assign types (ip, status, duration, etc.)
-    - Save custom parsers to IndexedDB
-    - Export/share parser configs as JSON snippets
+11. Custom Regex / User-Defined Parsers                   [TODO]
+    [ ] UI-based builder: upload sample, highlight fields, name them
+    [ ] Assign field types (ip, status, duration, level, etc.)
+    [ ] Save custom parsers to IndexedDB
+    [ ] Export/share parser configs as JSON
 
-12. Configurable Thresholds & Local Alerts
-    - UI for setting slow/critical thresholds per analysis session
-    - Browser Notification API when long analysis completes
-    - Generate plain-text summary ready to paste into team chat/email
+12. Configurable Thresholds & Local Alerts                [DONE]
+    ✓ UI inputs for slow/critical thresholds per session
+    ✓ Browser Notification API on analysis completion
+    ✓ Text summary generation (copy-paste ready)
+    ✓ JSON export and PDF export
 
-13. Performance & UX Polish
-    - Virtual scrolling for large tables (5000+ rows)
-    - Progressive rendering: show summary while charts load
-    - Collapsible report sections
-    - Custom report layout (drag-and-drop reorder)
-    - Bookmarkable URLs for specific analyses
+13. Performance & UX Polish                               [PARTIAL]
+    ✓ Collapsible report sections (Visualizations, Tables, PG sub-sections)
+    ✓ Dark/light theme persisted to localStorage
+    ✓ Upload progress bar, toast notifications
+    ✓ Responsive design, print-optimized CSS
+    ✓ Skip-to-content link, keyboard accessibility
+    [ ] Virtual scrolling for large tables
+    [ ] Progressive rendering (skeleton/shimmer loading)
+    [ ] Custom layout (drag-and-drop section reorder)
+    [ ] Bookmarkable URLs for specific analyses
 
 ================================================================================
-Implementation Priority Summary
+Summary: What's Actually Left
 ================================================================================
-P0  → History + Search/Filter        (largest daily workflow win)
-P1  → Multi-file + Context + Correlation
-P2  → More parsers + Auto-detect + PG depth + Redaction
-P3  → CLI + Custom parsers + Alerts + UX polish
+Priority  | Feature                         | Status
+----------|---------------------------------|---------
+P2        | 6. New parsers (HAProxy, MySQL, | TODO
+          |    Apache, Systemd, Caddy, CSV) |
+P2        | 7. Hybrid auto-detection        | PARTIAL
+P2        | 9. Data redaction/sanitization  | TODO
+P3        | 10. CLI mode                    | TODO
+P3        | 11. Custom parser builder       | TODO
+P3        | 13. Virtual scroll, layout,     | PARTIAL
+          |     bookmarkable URLs           |
+
+Everything else in P0-P3 is already implemented.
 ================================================================================
