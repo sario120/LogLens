@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from app.config import (
     API_KEY, SECRET_KEY, TOKEN_TTL, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_SIZE,
-    AUTH_MAX_ATTEMPTS, AUTH_WINDOW_SECONDS,
+    AUTH_MAX_ATTEMPTS, AUTH_WINDOW_SECONDS, SLOW_THRESHOLD, CRITICAL_THRESHOLD,
 )
 from app.analyzers.report import parse_and_analyze
 
@@ -163,7 +163,7 @@ async def check_session(request: Request):
 
 
 @app.post("/api/analyze")
-async def analyze(request: Request, file: UploadFile = File(None), log_type: str = Form("auto"), exclude_ips: str = Form("")):
+async def analyze(request: Request, file: UploadFile = File(None), log_type: str = Form("auto"), exclude_ips: str = Form(""), slow_threshold: str = Form(""), critical_threshold: str = Form("")):
     auth_err = _require_auth(request)
     if auth_err:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -188,12 +188,31 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
         raw = body.get("content", "")
         log_type = body.get("log_type", "auto")
         exclude_ips = body.get("exclude_ips", "")
+        slow_threshold = body.get("slow_threshold", "")
+        critical_threshold = body.get("critical_threshold", "")
 
     if not raw.strip():
         raise HTTPException(status_code=400, detail="No log content provided")
 
     skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
-    report, parser = parse_and_analyze(raw, log_type, exclude_ips=skip or None, return_parser=True)
+
+    # Apply per-session thresholds if provided
+    import app.config as _cfg
+    _orig_slow = _cfg.SLOW_THRESHOLD
+    _orig_critical = _cfg.CRITICAL_THRESHOLD
+    if slow_threshold:
+        try: _cfg.SLOW_THRESHOLD = float(slow_threshold)
+        except ValueError: pass
+    if critical_threshold:
+        try: _cfg.CRITICAL_THRESHOLD = float(critical_threshold)
+        except ValueError: pass
+
+    try:
+        report, parser = parse_and_analyze(raw, log_type, exclude_ips=skip or None, return_parser=True)
+    finally:
+        _cfg.SLOW_THRESHOLD = _orig_slow
+        _cfg.CRITICAL_THRESHOLD = _orig_critical
+
     if report.get("error"):
         return JSONResponse(report)
     analysis_id = _cache_analysis(parser, report)
@@ -231,24 +250,42 @@ async def analyze_batch(request: Request):
     log_type = body.get("log_type", "auto")
     exclude_ips = body.get("exclude_ips", "")
     label = body.get("label", "")
+    slow_threshold = body.get("slow_threshold", "")
+    critical_threshold = body.get("critical_threshold", "")
 
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
     skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
-    reports = []
-    for f in files:
-        content = f.get("content", "")
-        fname = f.get("name", "unknown")
-        if not content.strip():
-            reports.append({"error": f"No content in {fname}", "filename": fname})
-            continue
-        r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
-        if not r.get("error"):
-            aid = _cache_analysis(p, r)
-            r["analysis_id"] = aid
-        r["filename"] = fname
-        reports.append(r)
+
+    # Apply per-session thresholds if provided
+    import app.config as _cfg
+    _orig_slow = _cfg.SLOW_THRESHOLD
+    _orig_critical = _cfg.CRITICAL_THRESHOLD
+    if slow_threshold:
+        try: _cfg.SLOW_THRESHOLD = float(slow_threshold)
+        except ValueError: pass
+    if critical_threshold:
+        try: _cfg.CRITICAL_THRESHOLD = float(critical_threshold)
+        except ValueError: pass
+
+    try:
+        reports = []
+        for f in files:
+            content = f.get("content", "")
+            fname = f.get("name", "unknown")
+            if not content.strip():
+                reports.append({"error": f"No content in {fname}", "filename": fname})
+                continue
+            r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
+            if not r.get("error"):
+                aid = _cache_analysis(p, r)
+                r["analysis_id"] = aid
+            r["filename"] = fname
+            reports.append(r)
+    finally:
+        _cfg.SLOW_THRESHOLD = _orig_slow
+        _cfg.CRITICAL_THRESHOLD = _orig_critical
 
     return JSONResponse({"reports": reports, "count": len(reports), "label": label})
 

@@ -183,6 +183,8 @@ document.addEventListener('alpine:init', () => {
     inputMode: 'file',
     logType: 'auto',
     excludeIps: '',
+    slowThreshold: '',
+    criticalThreshold: '',
     report: null,
     error: null,
     file: null,
@@ -202,6 +204,7 @@ document.addEventListener('alpine:init', () => {
     sortKey: {},
     sortDir: {},
     expandedRow: {},
+    collapsedSections: {},
     batchMode: 'single',
     batchFiles: [],
     batchReports: [],
@@ -214,7 +217,13 @@ document.addEventListener('alpine:init', () => {
     contextPanel: null,
     contextLoading: false,
     contextError: null,
-    init() { this.restoreDraft(); },
+    chartsRendered: false,
+    init() {
+      this.restoreDraft();
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    },
     _showToast(msg, type, duration) { this.toastMessage = msg; this.toastType = type || 'info'; setTimeout(() => { if (this.toastMessage === msg) this.toastMessage = null; }, duration || 4000); },
 
     async analyze() {
@@ -229,7 +238,7 @@ document.addEventListener('alpine:init', () => {
           const res = await fetch('/api/analyze', {
             method: 'POST',
             headers: {'Authorization': 'Bearer ' + Alpine.store('auth').token, 'Content-Type': 'application/json'},
-            body: JSON.stringify({content: this.pasteContent, log_type: this.logType, exclude_ips: this.excludeIps})
+            body: JSON.stringify({content: this.pasteContent, log_type: this.logType, exclude_ips: this.excludeIps, slow_threshold: this.slowThreshold, critical_threshold: this.criticalThreshold})
           });
           await this._handleResponse(res);
         } else {
@@ -248,6 +257,8 @@ document.addEventListener('alpine:init', () => {
         fd.append('file', this.file);
         fd.append('log_type', this.logType);
         fd.append('exclude_ips', this.excludeIps);
+        fd.append('slow_threshold', this.slowThreshold);
+        fd.append('critical_threshold', this.criticalThreshold);
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/analyze');
         xhr.setRequestHeader('Authorization', 'Bearer ' + Alpine.store('auth').token);
@@ -255,7 +266,7 @@ document.addEventListener('alpine:init', () => {
         xhr.addEventListener('load', () => {
           this.uploadProgress = -1;
           if (xhr.status === 401) { Alpine.store('auth').logout(); reject(new Error('SESSION_EXPIRED')); return; }
-          try { const data = JSON.parse(xhr.responseText); if (xhr.status >= 200 && xhr.status < 300) { this.report = data; if (data.error) { reject(new Error(data.error)); return; } this.view = 'report'; this.$nextTick(() => renderCharts(this.report)); this.saveToHistory(); LogLensDB.clearDraft(); resolve(); } else { reject(new Error(data.detail || 'Analysis failed')); } } catch(_) { reject(new Error('Analysis failed')); }
+          try { const data = JSON.parse(xhr.responseText); if (xhr.status >= 200 && xhr.status < 300) { this.report = data; if (data.error) { reject(new Error(data.error)); return; } this.view = 'report'; this.chartsRendered = false; this.$nextTick(() => { renderCharts(this.report); this.chartsRendered = true; }); this.saveToHistory(); LogLensDB.clearDraft(); this._notifyComplete(); resolve(); } else { reject(new Error(data.detail || 'Analysis failed')); } } catch(_) { reject(new Error('Analysis failed')); }
         });
         xhr.addEventListener('error', () => { this.uploadProgress = -1; reject(new Error('Network error')); });
         xhr.send(fd);
@@ -271,11 +282,16 @@ document.addEventListener('alpine:init', () => {
       this.report = await res.json();
       if (this.report.error) throw new Error(this.report.error);
       this.view = 'report';
-      this.$nextTick(() => renderCharts(this.report));
+      this.chartsRendered = false;
+      this.$nextTick(() => {
+        renderCharts(this.report);
+        this.chartsRendered = true;
+      });
       this.saveToHistory();
       LogLensDB.clearDraft();
+      this._notifyComplete();
     },
-    reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; this.reportLabel = ''; this.searchQuery = ''; this.tableFilters = {}; this.sortKey = {}; this.sortDir = {}; this.expandedRow = {}; this.$nextTick(() => { const el = document.getElementById('main-content'); if (el) el.focus(); }); },
+    reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; this.slowThreshold = ''; this.criticalThreshold = ''; this.reportLabel = ''; this.searchQuery = ''; this.tableFilters = {}; this.sortKey = {}; this.sortDir = {}; this.expandedRow = {}; this.collapsedSections = {}; this.chartsRendered = false; this.$nextTick(() => { const el = document.getElementById('main-content'); if (el) el.focus(); }); },
 
     async saveToHistory() {
       if (!this.report) return;
@@ -413,6 +429,83 @@ document.addEventListener('alpine:init', () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `loglens-report-${this.report.log_type}-${Date.now()}.json`;
       a.click(); URL.revokeObjectURL(url);
+    },
+    exportText() {
+      if (!this.report) return;
+      const r = this.report;
+      const lines = [];
+      lines.push('LogLens Analysis Report');
+      lines.push('=' .repeat(40));
+      lines.push(`Type: ${r.log_type_label || r.log_type || 'unknown'}`);
+      if (r.time_range && r.time_range.start) lines.push(`Time Range: ${r.time_range.start} — ${r.time_range.end}`);
+      if (r.parsed != null) lines.push(`Entries: ${r.parsed} of ${r.total_lines}`);
+      if (r.processing_ms != null) lines.push(`Parsed in: ${r.processing_ms}ms`);
+      lines.push('');
+      lines.push('Summary');
+      lines.push('-'.repeat(40));
+      if (r.summary) {
+        Object.entries(r.summary).forEach(([k, v]) => {
+          if (v != null && typeof v === 'number' && k !== 'health') {
+            lines.push(`  ${k.replace(/_/g, ' ')}: ${v.toLocaleString()}`);
+          }
+        });
+      }
+      if (r.duration_stats) {
+        lines.push('');
+        lines.push('Duration Stats');
+        lines.push('-'.repeat(40));
+        lines.push(`  Count: ${r.duration_stats.count}`);
+        lines.push(`  Avg: ${r.duration_stats.avg}ms`);
+        lines.push(`  P50: ${r.duration_stats.p50}ms`);
+        lines.push(`  P95: ${r.duration_stats.p95}ms`);
+        lines.push(`  P99: ${r.duration_stats.p99}ms`);
+        lines.push(`  Max: ${r.duration_stats.max}ms`);
+      }
+      if (r.slow_queries && r.slow_queries.length) {
+        lines.push('');
+        lines.push(`Slow Queries (${r.slow_queries.length})`);
+        lines.push('-'.repeat(40));
+        r.slow_queries.slice(0, 10).forEach(q => {
+          lines.push(`  [${q.timestamp}] ${q.duration_ms}ms ${q.stmt_type || ''} ${q.table || ''}`);
+          lines.push(`    ${q.message}`);
+        });
+      }
+      if (r.tables && r.tables.status_codes) {
+        lines.push('');
+        lines.push('Status Codes');
+        lines.push('-'.repeat(40));
+        r.tables.status_codes.forEach(s => {
+          lines.push(`  ${s.status}: ${s.count} (${s.pct}%)`);
+        });
+      }
+      if (r.tables && r.tables.ip_details) {
+        lines.push('');
+        lines.push('Top IPs');
+        lines.push('-'.repeat(40));
+        r.tables.ip_details.slice(0, 10).forEach(ip => {
+          lines.push(`  ${ip.ip}: ${ip.count} requests, ${ip.error_rate}% errors`);
+        });
+      }
+      lines.push('');
+      lines.push(`Generated by LogLens on ${new Date().toLocaleString()}`);
+      const blob = new Blob([lines.join('\n')], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `loglens-summary-${r.log_type}-${Date.now()}.txt`;
+      a.click(); URL.revokeObjectURL(url);
+    },
+    _notifyComplete() {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const r = this.report;
+        const title = 'LogLens Analysis Complete';
+        const body = `${r.log_type_label || r.log_type || 'Log'} — ${r.parsed || 0} entries analyzed`;
+        try { new Notification(title, { body, icon: '/static/favicon.svg' }); } catch(_) {}
+      }
+    },
+    toggleSection(key) {
+      this.collapsedSections[key] = !this.collapsedSections[key];
+    },
+    isSectionCollapsed(key) {
+      return !!this.collapsedSections[key];
     },
     healthLabel(h) { return h === 'healthy' ? 'Healthy' : h === 'degraded' ? 'Degraded' : h === 'critical' ? 'Critical' : null; },
     healthColor(h) { const cs = getComputedStyle(document.documentElement); return h === 'healthy' ? cs.getPropertyValue('--c-success').trim() : h === 'degraded' ? cs.getPropertyValue('--c-warning').trim() : h === 'critical' ? cs.getPropertyValue('--c-danger').trim() : '#9ca3af'; },
@@ -695,7 +788,7 @@ document.addEventListener('alpine:init', () => {
         const res = await fetch('/api/analyze-batch', {
           method: 'POST',
           headers: {'Authorization': 'Bearer ' + Alpine.store('auth').token, 'Content-Type': 'application/json'},
-          body: JSON.stringify({ files, log_type: this.logType, exclude_ips: this.excludeIps, label: this.batchLabel })
+          body: JSON.stringify({ files, log_type: this.logType, exclude_ips: this.excludeIps, label: this.batchLabel, slow_threshold: this.slowThreshold, critical_threshold: this.criticalThreshold })
         });
         if (res.status === 401) { Alpine.store('auth').logout(); throw new Error('Session expired'); }
         if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Batch analysis failed'); }
@@ -1462,6 +1555,29 @@ function renderBatchCharts(reports) {
               <p class="text-xs text-gray-500 mt-1">Comma-separated IPs to skip from analysis</p>
             </div>
 
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-300 mb-2">Performance Thresholds <span class="text-gray-500 font-normal">(optional, overrides defaults)</span></label>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Slow Query Threshold</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" x-model="slowThreshold" placeholder="10" min="0" step="0.5"
+                      class="w-full px-3 py-2 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm">
+                    <span class="text-xs text-gray-500 shrink-0">sec</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Critical Threshold</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" x-model="criticalThreshold" placeholder="30" min="0" step="1"
+                      class="w-full px-3 py-2 rounded-lg bg-dark-700 border border-dark-600 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition text-sm">
+                    <span class="text-xs text-gray-500 shrink-0">sec</span>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">Adjust per-session: slow (default 10s), critical (default 30s)</p>
+            </div>
+
             <div class="mb-4">
               <label class="block text-xs font-semibold uppercase tracking-widest mb-1.5" style="color:var(--c-text-muted)">Session Label <span class="font-normal">(optional)</span></label>
               <input type="text" x-model="reportLabel" placeholder="e.g. Post-deploy perf check 2026-07-18"
@@ -1644,6 +1760,10 @@ function renderBatchCharts(reports) {
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Export JSON
               </button>
+              <button @click="exportText()" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Copy Summary
+              </button>
               <button @click="exportPdf()" :disabled="pdfExporting" class="px-4 py-2 rounded-lg bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white transition text-sm font-medium flex items-center gap-1.5 min-h-[44px]">
                 <svg x-show="!pdfExporting" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                 <svg x-show="pdfExporting" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -1749,7 +1869,11 @@ function renderBatchCharts(reports) {
           </div>
 
           <div x-show="report.log_type === 'postgres' && report.charts" x-cloak class="space-y-4">
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Query Performance</h3>
+              <div @click="toggleSection('pg-perf')" class="flex items-center gap-2 cursor-pointer select-none">
+                <svg class="w-4 h-4 transition-transform" :class="{'rotate-90': !isSectionCollapsed('pg-perf')}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Query Performance</h3>
+              </div>
+              <div x-show="!isSectionCollapsed('pg-perf')" x-transition>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div x-show="report.duration_stats" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
                   <h4 class="text-sm font-medium text-gray-300 mb-3">Query Duration Stats</h4>
@@ -1801,7 +1925,7 @@ function renderBatchCharts(reports) {
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statement</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="(q, idx) in report.slow_queries.slice(0, 30)" :key="idx">
+                        <template x-for="(q, idx) in filterTable('slow_queries', report.slow_queries).slice(0, 30)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="q.timestamp"></td>
                             <td class="px-4 py-2 font-mono text-xs" :class="q.duration_ms > 10000 ? 'text-danger' : q.duration_ms > 1000 ? 'text-warning' : 'text-gray-300'" x-text="q.duration_ms >= 1000 ? (q.duration_ms / 1000).toFixed(1) + 's' : q.duration_ms.toFixed(0) + 'ms'"></td>
@@ -1829,7 +1953,7 @@ function renderBatchCharts(reports) {
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Table</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="(q, idx) in report.normalized_queries" :key="idx">
+                        <template x-for="(q, idx) in filterTable('normalized_queries', report.normalized_queries)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-4 py-2 text-gray-300 font-mono text-xs max-w-xl truncate" x-text="q.normalized"></td>
                             <td class="px-4 py-2 text-accent-400 font-medium text-xs" x-text="q.count"></td>
@@ -1868,7 +1992,7 @@ function renderBatchCharts(reports) {
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="(le, idx) in report.lock_events.slice(0, 30)" :key="idx">
+                        <template x-for="(le, idx) in filterTable('lock_events', report.lock_events).slice(0, 30)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="le.timestamp"></td>
                             <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="le.pid"></td>
@@ -1904,7 +2028,7 @@ function renderBatchCharts(reports) {
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="(av, idx) in report.autovacuum_events.slice(0, 30)" :key="idx">
+                        <template x-for="(av, idx) in filterTable('autovacuum_events', report.autovacuum_events).slice(0, 30)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="av.timestamp"></td>
                             <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="av.pid"></td>
@@ -1955,7 +2079,7 @@ function renderBatchCharts(reports) {
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="(re, idx) in report.replication_events.slice(0, 30)" :key="idx">
+                        <template x-for="(re, idx) in filterTable('replication_events', report.replication_events).slice(0, 30)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-4 py-2 text-accent-400 font-mono text-xs" x-text="re.timestamp"></td>
                             <td class="px-4 py-2 text-gray-400 font-mono text-xs" x-text="re.pid"></td>
@@ -1970,7 +2094,13 @@ function renderBatchCharts(reports) {
                 </div>
               </template>
           </div>
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Visualizations</h3>
+              </div>
+
+              <div @click="toggleSection('viz')" class="flex items-center gap-2 cursor-pointer select-none">
+                <svg class="w-4 h-4 transition-transform" :class="{'rotate-90': !isSectionCollapsed('viz')}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Visualizations</h3>
+              </div>
+              <div x-show="!isSectionCollapsed('viz')" x-transition>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div x-show="report.charts.status_distribution" class="bg-dark-800 border border-dark-600 rounded-xl p-5">
                   <h4 class="text-sm font-medium text-gray-300 mb-3">Status Distribution</h4>
@@ -2042,7 +2172,11 @@ function renderBatchCharts(reports) {
 
           <template x-if="report.tables">
             <div class="space-y-4">
-              <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Detailed Tables</h3>
+              <div @click="toggleSection('tables')" class="flex items-center gap-2 cursor-pointer select-none">
+                <svg class="w-4 h-4 transition-transform" :class="{'rotate-90': !isSectionCollapsed('tables')}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider" style="border-left:3px solid var(--c-accent-mid);padding-left:10px">Detailed Tables</h3>
+              </div>
+              <div x-show="!isSectionCollapsed('tables')" x-transition>
 
               <template x-if="report.charts && report.charts.hourly_timeline && report.charts.hourly_timeline.length">
                 <div class="bg-dark-800 border border-dark-600 rounded-xl overflow-hidden">
@@ -2088,7 +2222,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.hourly_performance" :key="row.hour">
+                        <template x-for="row in filterTable('hourly_performance', report.tables.hourly_performance)" :key="row.hour">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs" x-text="row.hour"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.requests)"></td>
@@ -2129,7 +2263,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error Rate</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.endpoint_performance" :key="row.path">
+                        <template x-for="row in filterTable('endpoint_performance', report.tables.endpoint_performance)" :key="row.path">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate" x-text="row.path" :title="row.path"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
@@ -2198,7 +2332,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.status_codes" :key="row.code">
+                        <template x-for="row in filterTable('status_codes', report.tables.status_codes)" :key="row.code">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 cursor-pointer" @click="searchQuery = String(row.code)">
                               <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium clickable"
@@ -2237,7 +2371,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Codes</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.ip_details" :key="row.ip">
+                        <template x-for="row in filterTable('ip_details', report.tables.ip_details)" :key="row.ip">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs clickable" x-text="row.ip" @click="searchQuery = row.ip"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.total)"></td>
@@ -2268,7 +2402,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.top_endpoints" :key="row.path">
+                        <template x-for="row in filterTable('top_endpoints', report.tables.top_endpoints)" :key="row.path">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate clickable" x-text="row.path" :title="row.path" @click="searchQuery = row.path"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
@@ -2297,7 +2431,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Codes</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.endpoint_details" :key="row.endpoint">
+                        <template x-for="row in filterTable('endpoint_details', report.tables.endpoint_details)" :key="row.endpoint">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate clickable" x-text="row.endpoint" :title="row.endpoint" @click="searchQuery = row.endpoint"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
@@ -2328,7 +2462,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.levels" :key="row.level">
+                        <template x-for="row in filterTable('levels', report.tables.levels)" :key="row.level">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5">
                               <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium"
@@ -2361,7 +2495,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.processes" :key="row.process">
+                        <template x-for="row in filterTable('processes', report.tables.processes)" :key="row.process">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs" x-text="row.process"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
@@ -2385,7 +2519,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.top_clients" :key="row.client">
+                        <template x-for="row in filterTable('top_clients', report.tables.top_clients)" :key="row.client">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs" x-text="row.client"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
@@ -2432,7 +2566,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Context</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="(row, idx) in report.tables.error_samples.slice(0, 25)" :key="idx">
+                        <template x-for="(row, idx) in filterTable('error_samples', report.tables.error_samples).slice(0, 25)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.timestamp || '—'"></td>
                             <td class="px-5 py-2.5">
@@ -2482,7 +2616,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Context</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="(row, idx) in report.tables.auth_failures_detail.slice(0, 30)" :key="idx">
+                        <template x-for="(row, idx) in filterTable('auth_failures_detail', report.tables.auth_failures_detail).slice(0, 30)" :key="idx">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.timestamp || '—'"></td>
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs clickable" x-text="row.source_ip || '—'" @click="searchQuery = row.source_ip"></td>
@@ -2513,7 +2647,7 @@ function renderBatchCharts(reports) {
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
                       </tr></thead>
                       <tbody>
-                        <template x-for="row in report.tables.top_source_ips" :key="row.ip">
+                        <template x-for="row in filterTable('top_source_ips', report.tables.top_source_ips)" :key="row.ip">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs" x-text="row.ip"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.count)"></td>
@@ -2524,9 +2658,9 @@ function renderBatchCharts(reports) {
                   </div>
                 </div>
               </template>
+              </div>
             </div>
           </template>
-           </div>
         </div>
       </template>
 
