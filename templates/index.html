@@ -2044,7 +2044,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.slow_queries.length > rowLimit('slow_queries')">
                         <tfoot><tr><td colspan="5" class="text-center py-2">
                           <button @click="showMoreRows('slow_queries')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('slow_queries')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.slow_queries.length }})</button>
+                          <button @click="showAllRows('slow_queries')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.slow_queries.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2078,7 +2078,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.normalized_queries.length > rowLimit('normalized_queries')">
                         <tfoot><tr><td colspan="5" class="text-center py-2">
                           <button @click="showMoreRows('normalized_queries')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('normalized_queries')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.normalized_queries.length }})</button>
+                          <button @click="showAllRows('normalized_queries')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.normalized_queries.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2122,7 +2122,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.lock_events.length > rowLimit('lock_events')">
                         <tfoot><tr><td colspan="4" class="text-center py-2">
                           <button @click="showMoreRows('lock_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('lock_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.lock_events.length }})</button>
+                          <button @click="showAllRows('lock_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.lock_events.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2166,7 +2166,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.autovacuum_events.length > rowLimit('autovacuum_events')">
                         <tfoot><tr><td colspan="6" class="text-center py-2">
                           <button @click="showMoreRows('autovacuum_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('autovacuum_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.autovacuum_events.length }})</button>
+                          <button @click="showAllRows('autovacuum_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.autovacuum_events.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2222,7 +2222,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.replication_events.length > rowLimit('replication_events')">
                         <tfoot><tr><td colspan="5" class="text-center py-2">
                           <button @click="showMoreRows('replication_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('replication_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.replication_events.length }})</button>
+                          <button @click="showAllRows('replication_events')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.replication_events.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2342,7 +2342,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.charts.hourly_timeline.length > rowLimit('hourly_timeline')">
                         <tfoot><tr><td colspan="4" class="text-center py-2">
                           <button @click="showMoreRows('hourly_timeline')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('hourly_timeline')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.charts.hourly_timeline.length }})</button>
+                          <button @click="showAllRows('hourly_timeline')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.charts.hourly_timeline.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2388,7 +2388,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.hourly_performance.length > rowLimit('hourly_performance')">
                         <tfoot><tr><td colspan="6" class="text-center py-2">
                           <button @click="showMoreRows('hourly_performance')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('hourly_performance')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.hourly_performance.length }})</button>
+                          <button @click="showAllRows('hourly_performance')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.hourly_performance.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2426,7 +2426,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.endpoint_performance.length > rowLimit('endpoint_performance')">
                         <tfoot><tr><td colspan="7" class="text-center py-2">
                           <button @click="showMoreRows('endpoint_performance')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('endpoint_performance')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.endpoint_performance.length }})</button>
+                          <button @click="showAllRows('endpoint_performance')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.endpoint_performance.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2473,7 +2473,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.incidents.length > rowLimit('incidents')">
                         <tfoot><tr><td colspan="7" class="text-center py-2">
                           <button @click="showMoreRows('incidents')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('incidents')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.incidents.length }})</button>
+                          <button @click="showAllRows('incidents')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.incidents.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2549,7 +2549,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.ip_details.length > rowLimit('ip_details')">
                         <tfoot><tr><td colspan="10" class="text-center py-2">
                           <button @click="showMoreRows('ip_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('ip_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.ip_details.length }})</button>
+                          <button @click="showAllRows('ip_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.ip_details.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2579,7 +2579,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.top_endpoints.length > rowLimit('top_endpoints')">
                         <tfoot><tr><td colspan="3" class="text-center py-2">
                           <button @click="showMoreRows('top_endpoints')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('top_endpoints')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.top_endpoints.length }})</button>
+                          <button @click="showAllRows('top_endpoints')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.top_endpoints.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2621,7 +2621,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.endpoint_details.length > rowLimit('endpoint_details')">
                         <tfoot><tr><td colspan="8" class="text-center py-2">
                           <button @click="showMoreRows('endpoint_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('endpoint_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.endpoint_details.length }})</button>
+                          <button @click="showAllRows('endpoint_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.endpoint_details.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2730,7 +2730,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.top_messages.length > rowLimit('top_messages')">
                         <tfoot><tr><td colspan="2" class="text-center py-2">
                           <button @click="showMoreRows('top_messages')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('top_messages')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.top_messages.length }})</button>
+                          <button @click="showAllRows('top_messages')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.top_messages.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -2819,7 +2819,7 @@ function renderBatchCharts(reports) {
                       <template x-if="report.tables.auth_failures_detail.length > rowLimit('auth_failures_detail')">
                         <tfoot><tr><td colspan="5" class="text-center py-2">
                           <button @click="showMoreRows('auth_failures_detail')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                          <button @click="showAllRows('auth_failures_detail')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ report.tables.auth_failures_detail.length }})</button>
+                          <button @click="showAllRows('auth_failures_detail')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.auth_failures_detail.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>
@@ -3169,7 +3169,7 @@ function renderBatchCharts(reports) {
                             <template x-if="r.tables.endpoint_performance.length > rowLimit('endpoint_performance')">
                               <tfoot><tr><td colspan="6" class="text-center py-1">
                                 <button @click="showMoreRows('endpoint_performance')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition">Show more</button>
-                                <button @click="showAllRows('endpoint_performance')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2">Show all ({{ r.tables.endpoint_performance.length }})</button>
+                                <button @click="showAllRows('endpoint_performance')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2"><span x-text="'Show all (' + r.tables.endpoint_performance.length + ')'"></span></button>
                               </td></tr></tfoot>
                             </template>
                           </table>
@@ -3207,7 +3207,7 @@ function renderBatchCharts(reports) {
                             <template x-if="r.tables.ip_details.length > rowLimit('ip_details')">
                               <tfoot><tr><td colspan="7" class="text-center py-1">
                                 <button @click="showMoreRows('ip_details')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition">Show more</button>
-                                <button @click="showAllRows('ip_details')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2">Show all ({{ r.tables.ip_details.length }})</button>
+                                <button @click="showAllRows('ip_details')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2"><span x-text="'Show all (' + r.tables.ip_details.length + ')'"></span></button>
                               </td></tr></tfoot>
                             </template>
                           </table>
@@ -3277,7 +3277,7 @@ function renderBatchCharts(reports) {
                             <template x-if="r.tables.error_samples.length > rowLimit('error_samples')">
                               <tfoot><tr><td colspan="3" class="text-center py-1">
                                 <button @click="showMoreRows('error_samples')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition">Show more</button>
-                                <button @click="showAllRows('error_samples')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2">Show all ({{ r.tables.error_samples.length }})</button>
+                                <button @click="showAllRows('error_samples')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2"><span x-text="'Show all (' + r.tables.error_samples.length + ')'"></span></button>
                               </td></tr></tfoot>
                             </template>
                           </table>
@@ -3309,7 +3309,7 @@ function renderBatchCharts(reports) {
                             <template x-if="r.tables.auth_failures_detail.length > rowLimit('auth_failures_detail')">
                               <tfoot><tr><td colspan="4" class="text-center py-1">
                                 <button @click="showMoreRows('auth_failures_detail')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition">Show more</button>
-                                <button @click="showAllRows('auth_failures_detail')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2">Show all ({{ r.tables.auth_failures_detail.length }})</button>
+                                <button @click="showAllRows('auth_failures_detail')" class="px-2 py-0.5 text-[10px] rounded bg-dark-600 border border-dark-500 text-gray-400 hover:text-accent-400 transition ml-2"><span x-text="'Show all (' + r.tables.auth_failures_detail.length + ')'"></span></button>
                               </td></tr></tfoot>
                             </template>
                           </table>
@@ -3421,7 +3421,7 @@ function renderBatchCharts(reports) {
                     <template x-if="correlationData.timeline.length > rowLimit('correlation_timeline')">
                       <tfoot><tr><td colspan="4" class="text-center py-2">
                         <button @click="showMoreRows('correlation_timeline')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
-                        <button @click="showAllRows('correlation_timeline')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2">Show all ({{ correlationData.timeline.length }})</button>
+                        <button @click="showAllRows('correlation_timeline')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + correlationData.timeline.length + ')'"></span></button>
                       </td></tr></tfoot>
                     </template>
                   </table>
