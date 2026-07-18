@@ -1744,8 +1744,8 @@ function renderBatchCharts(reports) {
           </div>
 
           <template x-if="historyReports.length === 0">
-            <div class="text-center py-16">
-              <svg class="w-12 h-12 mx-auto mb-4" style="color:var(--c-text-muted)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="flex flex-col items-center justify-center" style="min-height:50vh">
+              <svg class="w-8 h-8 mb-3" style="color:var(--c-text-muted)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               <p class="text-gray-400">No reports saved yet.</p>
               <p class="text-gray-500 text-sm mt-1">Reports are automatically saved after analysis.</p>
             </div>
