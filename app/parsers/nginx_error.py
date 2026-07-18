@@ -30,7 +30,10 @@ def _extract_client(message: str) -> str | None:
     for pat in CLIENT_PATTERNS:
         m = pat.search(message)
         if m:
-            val = m.group("client") or m.group("ip")
+            try:
+                val = m.group("client")
+            except IndexError:
+                val = m.group("ip")
             return val.rstrip(",") if val else None
     return None
 

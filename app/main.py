@@ -17,8 +17,9 @@ from app.config import (
     AUTH_MAX_ATTEMPTS, AUTH_WINDOW_SECONDS, SLOW_THRESHOLD, CRITICAL_THRESHOLD,
 )
 from app.analyzers.report import parse_and_analyze
+from app.version import __version__
 
-app = FastAPI(title="LogLens", version="1.0.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="LogLens", version=__version__, docs_url=None, redoc_url=None)
 
 BASE = Path(__file__).resolve().parent.parent
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")

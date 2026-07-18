@@ -126,6 +126,8 @@ class ApiBackendParser(BaseParser):
             })
         endpoint_table.sort(key=lambda x: x["count"], reverse=True)
 
+        step = max(1, len(dur_sorted) // 20) if dur_sorted else 20
+
         return {
             "log_type": "api_backend",
             "log_type_label": "API Backend Log",
@@ -154,10 +156,10 @@ class ApiBackendParser(BaseParser):
                 "top_endpoints": [{"label": p, "value": c} for p, c in path_counter.most_common(15)],
                 "method_distribution": [{"label": k, "value": v} for k, v in method_counter.most_common()],
                 "status_distribution": [{"label": str(k), "value": v} for k, v in status_counter.most_common()],
-                "duration_histogram": [
+                "duration_histogram": [] if not dur_sorted else [
                     {"label": f"≤{round(dur_sorted[min(i + step, len(dur_sorted)) - 1], 2)}s", "value": min(i + step, len(dur_sorted)) - i}
-                    for i in range(0, len(dur_sorted), max(1, len(dur_sorted) // 20))
-                ] if dur_sorted else [],
+                    for i in range(0, len(dur_sorted), step)
+                ],
                 "top_errors": [
                     {"label": msg[:80] + ("..." if len(msg) > 80 else ""), "value": c}
                     for msg, c in error_msg_counter.most_common(15)
