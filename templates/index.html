@@ -1444,7 +1444,7 @@ function renderBatchCharts(reports) {
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605"/>
           </svg>
         </div>
-        <h1 class="text-4xl font-extrabold tracking-tight" style="color:var(--c-text)">LogLens</h1>
+        <a href="/"><h1 class="text-4xl font-extrabold tracking-tight" style="color:var(--c-text)">LogLens</h1></a>
         <p class="mt-2 text-sm" style="color:var(--c-text-muted)">Internal Log Analysis Portal</p>
       </div>
 
@@ -1508,14 +1508,14 @@ function renderBatchCharts(reports) {
 <div x-show="$store.auth.loggedIn" x-cloak class="min-h-screen flex flex-col" x-data="analyzer">
     <header class="sticky top-0 z-50 transition-colors" :class="$store.theme.dark ? 'border-b' : 'border-b'" :style="$store.theme.dark ? 'background:rgba(8,47,73,0.85);backdrop-filter:blur(12px);border-bottom-color:rgba(212,175,55,0.25)' : 'background:var(--c-surface);border-bottom-color:var(--c-border)'">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
+        <a href="/" class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--c-surface-raised);border:1px solid var(--c-border)">
             <svg class="w-4 h-4" style="color:var(--c-accent)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
           <span class="text-lg font-bold tracking-tight" style="color:var(--c-text)">LogLens</span>
-        </div>
+        </a>
         <div class="flex items-center gap-2">
           <button @click="showHistory()" class="text-sm transition px-2.5 py-1.5 rounded-lg min-h-[44px] flex items-center gap-1.5" style="color:var(--c-text-muted)" title="Report History">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
