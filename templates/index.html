@@ -1723,7 +1723,7 @@ function renderBatchCharts(reports) {
               <h2 class="text-2xl font-bold text-white">Report History</h2>
               <p class="text-gray-400 mt-1 text-sm" x-text="historyReports.length + ' report(s) saved locally'"></p>
             </div>
-            <button @click="view='upload'" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium">Back to Upload</button>
+            <button @click="view='upload'; updateHash()" class="px-4 py-2 rounded-lg bg-dark-700 border border-dark-600 text-gray-300 hover:text-white hover:bg-dark-600 transition text-sm font-medium">Back to Upload</button>
           </div>
 
           <div class="flex gap-3 mb-5">
