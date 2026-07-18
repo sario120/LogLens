@@ -1881,7 +1881,7 @@ function renderBatchCharts(reports) {
           <div class="flex items-center gap-3 bg-dark-800 border border-dark-600 rounded-xl px-4 py-3">
             <svg class="w-4 h-4 shrink-0" style="color:var(--c-text-muted)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             <input type="text" x-model="searchQuery" placeholder="Search across entire report (IPs, paths, errors, messages...)"
-              class="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm">
+              class="flex-1 bg-dark-700/50 text-white placeholder-gray-500 focus:outline-none text-sm rounded px-2 py-1">
             <button x-show="searchQuery" @click="searchQuery=''" class="text-gray-500 hover:text-white transition">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
