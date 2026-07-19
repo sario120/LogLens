@@ -483,14 +483,14 @@ document.addEventListener('alpine:init', () => {
     },
     _pageSize(table) {
       const sizes = {
-        hourly_timeline: 50, hourly_performance: 50, endpoint_performance: 50,
-        status_codes: 50, ip_details: 50, top_endpoints: 50, endpoint_details: 50,
-        levels: 50, processes: 50, top_clients: 50, incidents: 50, normalized_queries: 50,
-        slow_queries: 30, lock_events: 30, autovacuum_events: 30, replication_events: 30,
-        top_messages: 20, error_samples: 25, auth_failures_detail: 30, top_source_ips: 10,
-        correlation_timeline: 100,
+        hourly_timeline: 500, hourly_performance: 500, endpoint_performance: 500,
+        status_codes: 500, ip_details: 500, top_endpoints: 500, endpoint_details: 500,
+        levels: 500, processes: 500, top_clients: 500, incidents: 500, normalized_queries: 500,
+        slow_queries: 500, lock_events: 500, autovacuum_events: 500, replication_events: 500,
+        top_messages: 500, error_samples: 500, auth_failures_detail: 500, top_source_ips: 500,
+        correlation_timeline: 500, all_rows: 500,
       };
-      return sizes[table] || 50;
+      return sizes[table] || 500;
     },
     rowLimit(table) {
       return this.tableRowLimits[table] || this._pageSize(table);

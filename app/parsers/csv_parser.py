@@ -236,7 +236,7 @@ class CsvParser(BaseParser):
                 tables["error_samples"] = [
                     {k: e.get(k, "") for k in ["timestamp", "level", "message"] if e.get(k) is not None}
                     | {"_entry_idx": entries.index(e)}
-                    for e in errors[:25]
+                    for e in errors
                 ]
 
         if "status" in detected:
@@ -334,7 +334,7 @@ class CsvParser(BaseParser):
 
             ips = Counter(e.get("ip", "") for e in entries if e.get("ip"))
             charts["top_ips"] = [
-                {"label": k, "value": v} for k, v in ips.most_common(15)
+                {"label": k, "value": v} for k, v in ips.most_common()
             ]
             tables["ip_details"] = ip_table
             summary["unique_ips"] = len(ips)
@@ -369,7 +369,7 @@ class CsvParser(BaseParser):
                     "endpoint": ep,
                     "total": det["total"],
                     "unique_ips": len(det["ips"]),
-                    "top_ips": dict(det["ips"].most_common(5)),
+                    "top_ips": dict(det["ips"].most_common()),
                     "methods": dict(det["methods"].most_common()),
                     "error_count": error_count,
                     "error_rate": round(error_count / det["total"] * 100, 2) if det["total"] else 0,
@@ -379,7 +379,7 @@ class CsvParser(BaseParser):
 
             endpoints = Counter(e.get("endpoint", "") for e in entries if e.get("endpoint"))
             charts["top_endpoints"] = [
-                {"label": k[:80], "value": v} for k, v in endpoints.most_common(15)
+                {"label": k[:80], "value": v} for k, v in endpoints.most_common()
             ]
             tables["endpoint_details"] = ep_table
             summary["unique_endpoints"] = len(endpoints)
@@ -398,7 +398,7 @@ class CsvParser(BaseParser):
                 summary["total_bytes"] = round(total_bytes)
                 summary["total_bytes_human"] = self._human_bytes(total_bytes)
 
-        tables["all_rows"] = entries[:500]
+        tables["all_rows"] = entries
 
         return {
             "log_type": "csv",

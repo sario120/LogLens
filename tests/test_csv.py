@@ -347,12 +347,12 @@ class TestTables:
         assert "all_rows" in report["tables"]
         assert len(report["tables"]["all_rows"]) == 3
 
-    def test_all_rows_max_500(self):
+    def test_all_rows_no_cap(self):
         lines = ["a,b"] + [f"{i},{i}" for i in range(600)]
         raw = "\n".join(lines)
         parser = CsvParser()
         report = parser.parse(raw)
-        assert len(report["tables"]["all_rows"]) == 500
+        assert len(report["tables"]["all_rows"]) == 600
 
     def test_all_rows_original_columns(self):
         raw = "custom_a,custom_b,custom_c\n1,2,3\n4,5,6"

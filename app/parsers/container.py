@@ -101,7 +101,7 @@ class ContainerLogParser(BaseParser):
                 "hourly_timeline": [{"label": h, "value": c} for h, c in sorted(hourly.items())],
                 "top_errors": [
                     {"label": msg[:80] + ("..." if len(msg) > 80 else ""), "value": c}
-                    for msg, c in error_fingerprints.most_common(15)
+                    for msg, c in error_fingerprints.most_common()
                 ],
             },
             "tables": {
@@ -111,7 +111,7 @@ class ContainerLogParser(BaseParser):
                 ],
                 "error_samples": [
                     {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200], "_entry_idx": self.entries.index(e)}
-                    for e in error_entries[:25]
+                    for e in error_entries
                 ],
             },
         }

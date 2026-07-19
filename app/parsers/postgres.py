@@ -344,7 +344,7 @@ class PostgresParser(BaseParser):
                 if e.get("duration_ms") is not None:
                     norm_examples[nkey]["total_duration_ms"] += e["duration_ms"]
         normalized_queries = []
-        for nkey, data in norm_counter.most_common(30):
+        for nkey, data in norm_counter.most_common():
             ex = norm_examples[nkey]
             if ex["count"] > 0 and ex["total_duration_ms"] > 0:
                 ex["avg_duration_ms"] = round(ex["total_duration_ms"] / ex["count"], 2)
@@ -428,11 +428,11 @@ class PostgresParser(BaseParser):
                 ],
                 "stmt_type_distribution": [
                     {"label": k, "value": v}
-                    for k, v in stmt_counter.most_common(10)
+                    for k, v in stmt_counter.most_common()
                 ],
                 "top_tables": [
                     {"label": t[:60], "value": c}
-                    for t, c in table_counter.most_common(15)
+                    for t, c in table_counter.most_common()
                 ],
                 "hourly_timeline": [
                     {"label": h, "value": c}
@@ -448,16 +448,16 @@ class PostgresParser(BaseParser):
                 ],
                 "top_warnings": [
                     {"label": msg[:80] + ("..." if len(msg) > 80 else ""), "value": c}
-                    for msg, c in warning_fingerprints.most_common(10)
+                    for msg, c in warning_fingerprints.most_common()
                 ],
                 "top_errors": [
                     {"label": e["message"][:120], "value": 1}
-                    for e in error_entries[:15]
+                    for e in error_entries
                 ],
                 "duration_histogram": _build_duration_histogram(durations) if durations else None,
                 "top_tables_by_duration": [
                     {"label": t[:60], "value": round(v, 2)}
-                    for t, v in top_tables_by_duration.most_common(10)
+                    for t, v in top_tables_by_duration.most_common()
                 ],
                 "hourly_ckpt": [
                     {"label": h, "value": c}
@@ -473,7 +473,7 @@ class PostgresParser(BaseParser):
                 ],
                 "autovacuum_by_table": [
                     {"label": (t or "unknown")[:60], "value": v}
-                    for t, v in av_by_table.most_common(15)
+                    for t, v in av_by_table.most_common()
                 ],
                 "autovacuum_by_hour": [
                     {"label": h, "value": c}
@@ -495,7 +495,7 @@ class PostgresParser(BaseParser):
                     "stmt_type": e.get("stmt_type"),
                     "message": e["message"][:300],
                 }
-                for e in slow_queries[:50]
+                for e in slow_queries
             ],
             "normalized_queries": normalized_queries,
             "lock_events": [
@@ -505,7 +505,7 @@ class PostgresParser(BaseParser):
                     "level": le["level"],
                     "message": le["message"][:200],
                 }
-                for le in lock_events[:50]
+                for le in lock_events
             ],
             "lock_summary": {
                 "total": len(lock_events),
@@ -520,11 +520,11 @@ class PostgresParser(BaseParser):
                     "live_tuples": e.get("live_tuples"),
                     "message": e["message"][:200],
                 }
-                for e in av_events[:50]
+                for e in av_events
             ],
             "autovacuum_summary": {
                 "total": len(av_events),
-                "by_table": dict(av_by_table.most_common(20)),
+                "by_table": dict(av_by_table.most_common()),
             },
             "replication_events": [
                 {
@@ -535,7 +535,7 @@ class PostgresParser(BaseParser):
                     "lag_value": e.get("lag_value"),
                     "lag_unit": e.get("lag_unit"),
                 }
-                for e in rep_events[:50]
+                for e in rep_events
             ],
             "replication_summary": {
                 "total": len(rep_events),
@@ -552,15 +552,15 @@ class PostgresParser(BaseParser):
                 ],
                 "top_tables": [
                     {"table": t, "count": c, "pct": round(c / sum(table_counter.values()) * 100, 2) if table_counter else 0}
-                    for t, c in table_counter.most_common(20)
+                    for t, c in table_counter.most_common()
                 ],
                 "error_samples": [
                     {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200], "_entry_idx": self.entries.index(e)}
-                    for e in error_entries[:25]
+                    for e in error_entries
                 ],
                 "warning_samples": [
                     {"timestamp": e["timestamp"], "level": "WARNING", "message": e["message"][:200]}
-                    for e in warning_entries[:25]
+                    for e in warning_entries
                 ],
             },
         }

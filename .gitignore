@@ -11,3 +11,4 @@ package.json
 tailwind.config.js
 static/css/tailwind-input.css
 .venv/
+.coverage

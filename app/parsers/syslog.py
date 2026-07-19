@@ -91,28 +91,28 @@ class SyslogParser(BaseParser):
                 "auth_failure_rate": round(len(auth_failures) / parsed * 100, 2) if parsed else 0,
             },
             "charts": {
-                "process_distribution": [{"label": k, "value": v} for k, v in process_counter.most_common(15)],
+                "process_distribution": [{"label": k, "value": v} for k, v in process_counter.most_common()],
                 "hourly_timeline": [{"label": h, "value": c} for h, c in sorted(hourly.items())],
-                "top_source_ips": [{"label": ip, "value": v} for ip, v in ip_counter.most_common(10)],
-                "top_targeted_users": [{"label": u, "value": v} for u, v in user_counter.most_common(10)],
+                "top_source_ips": [{"label": ip, "value": v} for ip, v in ip_counter.most_common()],
+                "top_targeted_users": [{"label": u, "value": v} for u, v in user_counter.most_common()],
                 "auth_fail_messages": [
                     {"label": msg[:80] + ("..." if len(msg) > 80 else ""), "value": c}
-                    for msg, c in fail_msg_counter.most_common(10)
+                    for msg, c in fail_msg_counter.most_common()
                 ],
             },
             "tables": {
                 "processes": [
                     {"process": p, "count": c, "pct": round(c / parsed * 100, 2) if parsed else 0}
-                    for p, c in process_counter.most_common(15)
+                    for p, c in process_counter.most_common()
                 ],
                 "auth_failures_detail": [
                     {"timestamp": e["timestamp"], "source_ip": e.get("source_ip", "-"),
                      "user": e.get("user", "-"), "message": e["message"][:150], "_entry_idx": self.entries.index(e)}
-                    for e in auth_failures[:30]
+                    for e in auth_failures
                 ],
                 "top_source_ips": [
                     {"ip": ip, "count": c}
-                    for ip, c in ip_counter.most_common(10)
+                    for ip, c in ip_counter.most_common()
                 ],
             },
         }

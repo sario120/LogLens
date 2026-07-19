@@ -153,7 +153,7 @@ class ApiBackendParser(BaseParser):
             "charts": {
                 "level_distribution": [{"label": k, "value": v} for k, v in level_counter.most_common()],
                 "hourly_timeline": [{"label": h, "value": c} for h, c in sorted(hourly.items())],
-                "top_endpoints": [{"label": p, "value": c} for p, c in path_counter.most_common(15)],
+                "top_endpoints": [{"label": p, "value": c} for p, c in path_counter.most_common()],
                 "method_distribution": [{"label": k, "value": v} for k, v in method_counter.most_common()],
                 "status_distribution": [{"label": str(k), "value": v} for k, v in status_counter.most_common()],
                 "duration_histogram": [] if not dur_sorted else [
@@ -162,7 +162,7 @@ class ApiBackendParser(BaseParser):
                 ],
                 "top_errors": [
                     {"label": msg[:80] + ("..." if len(msg) > 80 else ""), "value": c}
-                    for msg, c in error_msg_counter.most_common(15)
+                    for msg, c in error_msg_counter.most_common()
                 ],
             },
             "tables": {
@@ -171,10 +171,10 @@ class ApiBackendParser(BaseParser):
                      "severity": LEVEL_MAP.get(k, 2)}
                     for k, v in level_counter.most_common()
                 ],
-                "endpoint_details": endpoint_table[:20],
+                "endpoint_details": endpoint_table,
                 "error_samples": [
                     {"timestamp": e["timestamp"], "level": e["level"], "message": e["message"][:200], "_entry_idx": self.entries.index(e)}
-                    for e in error_entries[:25]
+                    for e in error_entries
                 ],
             },
         }

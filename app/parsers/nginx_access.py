@@ -261,14 +261,14 @@ class NginxAccessParser(BaseParser):
                 "status_distribution": [{"label": str(k), "value": v} for k, v in status_counter.most_common()],
                 "hourly_timeline": [{"label": h, "value": c} for h, c in sorted(hourly.items())],
                 "method_distribution": [{"label": k, "value": v} for k, v in method_counter.most_common()],
-                "top_endpoints": [{"label": p, "value": c} for p, c in path_counter.most_common(15)],
-                "top_ips": [{"label": ip, "value": c} for ip, c in ip_counter.most_common(10)],
+                "top_endpoints": [{"label": p, "value": c} for p, c in path_counter.most_common()],
+                "top_ips": [{"label": ip, "value": c} for ip, c in ip_counter.most_common()],
                 "response_time_histogram": _histogram(rt_values, "Response Time (s)"),
                 "bytes_distribution": _histogram([e["bytes"] for e in entries], "Bytes"),
                 "rt_scatter": rt_scatter,
                 "endpoint_rt": [
                     {"label": e["path"], "avg": e["rt"]["avg"], "p95": e["rt"]["p95"], "max": e["rt"]["max"], "count": e["count"]}
-                    for e in endpoint_table[:10]
+                    for e in endpoint_table
                 ],
             },
             "tables": {
@@ -276,9 +276,9 @@ class NginxAccessParser(BaseParser):
                 "status_codes": status_table,
                 "top_endpoints": [
                     {"path": p, "count": c, "pct": round(c / parsed * 100, 2)}
-                    for p, c in path_counter.most_common(20)
+                    for p, c in path_counter.most_common()
                 ],
-                "endpoint_performance": endpoint_table[:15],
+                "endpoint_performance": endpoint_table,
                 "hourly_performance": hourly_perf,
                 "incidents": incidents,
             },

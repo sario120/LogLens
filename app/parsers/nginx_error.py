@@ -100,21 +100,21 @@ class NginxErrorParser(BaseParser):
             "charts": {
                 "level_distribution": [{"label": k, "value": v} for k, v in level_counter.most_common()],
                 "hourly_timeline": [{"label": h, "value": c} for h, c in sorted(hourly.items())],
-                "top_clients": [{"label": c, "value": v} for c, v in client_counter.most_common(10)],
+                "top_clients": [{"label": c, "value": v} for c, v in client_counter.most_common()],
                 "top_messages": [
                     {"label": msg[:80] + ("..." if len(msg) > 80 else ""), "value": c}
-                    for msg, c in message_fingerprints.most_common(15)
+                    for msg, c in message_fingerprints.most_common()
                 ],
             },
             "tables": {
                 "levels": level_table,
                 "top_clients": [
                     {"client": c, "count": v, "pct": round(v / parsed * 100, 2) if parsed else 0}
-                    for c, v in client_counter.most_common(15)
+                    for c, v in client_counter.most_common()
                 ],
                 "top_messages": [
                     {"message": msg[:120], "count": c}
-                    for msg, c in message_fingerprints.most_common(20)
+                    for msg, c in message_fingerprints.most_common()
                 ],
             },
         }
