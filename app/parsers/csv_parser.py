@@ -6,18 +6,22 @@ from app.parsers.base import BaseParser
 
 COLUMN_MAP = {
     "timestamp": ["timestamp", "time", "date", "created_at", "occurred_at", "ts",
-                   "@timestamp", "datetime", "log_date", "event_time", "event_timestamp"],
+                   "@timestamp", "datetime", "log_date", "event_time", "event_timestamp",
+                   "accessed_on", "request_time", "logged_at", "emitted_at"],
     "level":     ["level", "severity", "log_level", "logtype", "loglevel"],
     "message":   ["message", "msg", "description", "error", "details", "log", "text", "body"],
     "ip":        ["ip", "source_ip", "client_ip", "src_ip", "remote_addr", "client",
-                   "remote_ip", "src", "host_ip"],
-    "endpoint":  ["endpoint", "path", "url", "request_uri", "uri", "request_path"],
+                   "remote_ip", "src", "host_ip", "http_x_forwarded_for",
+                   "x_forwarded_for", "forwarded_for", "requester_ip"],
+    "endpoint":  ["endpoint", "path", "url", "request_uri", "uri", "request_path",
+                   "url_path", "route", "api_path", "request_url"],
     "method":    ["method", "http_method", "verb"],
     "status":    ["status", "status_code", "http_code", "response_code", "code"],
     "duration":  ["duration", "response_time", "rt", "latency", "elapsed",
-                   "request_time", "upstream_response_time"],
+                   "request_time", "upstream_response_time", "processing_time"],
     "bytes":     ["bytes", "body_bytes", "size", "bytes_sent", "response_size", "content_length"],
-    "user":      ["user", "username", "user_name", "auth_user"],
+    "user":      ["user", "username", "user_name", "auth_user", "uuid",
+                   "user_id", "accessed_by_id"],
 }
 
 LEVEL_PATTERNS = [
@@ -52,17 +56,23 @@ class CsvParser(BaseParser):
     def _auto_map_columns(self, headers: list[str]) -> dict[str, str | None]:
         mapping = {}
         used_targets = set()
+        candidates = []
         for header in headers:
             normalised = header.strip().lower().replace(" ", "_").replace("-", "_")
-            mapped = None
             for target, aliases in COLUMN_MAP.items():
-                if target in used_targets:
-                    continue
                 if normalised in aliases or normalised == target:
-                    mapped = target
-                    used_targets.add(target)
+                    candidates.append((header, target))
                     break
-            mapping[header] = mapped
+        candidates.sort(key=lambda c: (-len(c[0]), c[0]))
+        for header, target in candidates:
+            if target not in used_targets:
+                mapping[header] = target
+                used_targets.add(target)
+            else:
+                mapping[header] = None
+        for header in headers:
+            if header not in mapping:
+                mapping[header] = None
         return mapping
 
     def parse(self, raw: str, exclude_ips: list[str] | None = None) -> dict:
@@ -136,20 +146,52 @@ class CsvParser(BaseParser):
             return None
 
         entry = {}
+        results_raw = None
         for idx, header in enumerate(self._headers):
             val = values[idx].strip() if idx < len(values) else None
             mapped = self._column_mapping.get(header) or header
             entry[mapped] = val if val else None
+            if header == "results" and val:
+                results_raw = val
+
+        if "level" not in self._detected_columns and results_raw:
+            self._extract_level_from_results(entry, results_raw)
 
         has_data = any(v is not None for v in entry.values())
         return entry if has_data else None
+
+    @staticmethod
+    def _extract_level_from_results(entry: dict, raw: str):
+        low = raw.lower()
+        if "'error'" in low or "'non_field_errors'" in low or "'detail'" in low:
+            entry["level"] = "ERROR"
+            m = re.search(r"'error':\s*'([^']*)'", raw)
+            if not m:
+                m = re.search(r"'detail':\s*ErrorDetail\(string='([^']*)'", raw)
+            if not m:
+                m = re.search(r"'non_field_errors':\s*\[ErrorDetail\(string='([^']*)'", raw)
+            entry["message"] = m.group(1) if m else raw[:200]
+        elif "'matched': 'Y'" in raw or "'matched': \"Y\"" in raw:
+            entry["level"] = "INFO"
+            entry["message"] = "Match found"
+        elif "'matched': 'N'" in raw or "'matched': \"N\"" in raw:
+            entry["level"] = "WARN"
+            m = re.search(r"'error':\s*'([^']*)'", raw)
+            entry["message"] = m.group(1) if m else "No match"
+        elif "'token'" in low:
+            entry["level"] = "INFO"
+            entry["message"] = "Token issued"
 
     def _parse_line(self, line: str) -> dict | None:
         return self._parse_csv_row(line)
 
     def _build_report(self, total: int, parsed: int) -> dict:
         entries = self.entries
-        detected = self._detected_columns
+        detected = set(self._detected_columns)
+        if entries and any(e.get("level") for e in entries):
+            detected.add("level")
+        if entries and any(e.get("message") for e in entries):
+            detected.add("message")
 
         summary = {
             "total_entries": parsed,

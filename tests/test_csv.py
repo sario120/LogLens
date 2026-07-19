@@ -71,10 +71,10 @@ class TestAutoMapColumns:
         assert mapping["level"] == "level"
         assert mapping["extra"] is None
 
-    def test_duplicate_target_first_wins(self):
+    def test_duplicate_target_longer_wins(self):
         mapping = self.parser._auto_map_columns(["time", "timestamp", "date"])
-        assert mapping["time"] == "timestamp"
-        assert mapping["timestamp"] is None
+        assert mapping["timestamp"] == "timestamp"
+        assert mapping["time"] is None
         assert mapping["date"] is None
 
 
