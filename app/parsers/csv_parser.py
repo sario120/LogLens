@@ -286,25 +286,102 @@ class CsvParser(BaseParser):
                 ]
 
         if "ip" in detected:
+            ip_data = {}
+            for e in entries:
+                ip = e.get("ip")
+                if not ip:
+                    continue
+                if ip not in ip_data:
+                    ip_data[ip] = {
+                        "total": 0, "endpoints": Counter(), "methods": Counter(),
+                        "levels": Counter(), "users": set(),
+                        "first_seen": e.get("timestamp", ""),
+                        "last_seen": e.get("timestamp", ""),
+                    }
+                det = ip_data[ip]
+                det["total"] += 1
+                if e.get("endpoint"):
+                    det["endpoints"][e["endpoint"]] += 1
+                if e.get("method"):
+                    det["methods"][e["method"]] += 1
+                if e.get("level"):
+                    det["levels"][e["level"]] += 1
+                if e.get("user"):
+                    det["users"].add(e["user"])
+                ts = e.get("timestamp", "")
+                if ts and (not det["last_seen"] or ts > det["last_seen"]):
+                    det["last_seen"] = ts
+                if ts and (not det["first_seen"] or ts < det["first_seen"]):
+                    det["first_seen"] = ts
+
+            ip_table = []
+            for ip, det in ip_data.items():
+                error_count = sum(v for k, v in det["levels"].items()
+                                  if k in ("ERROR", "FATAL", "CRITICAL"))
+                ip_table.append({
+                    "ip": ip,
+                    "total": det["total"],
+                    "first_seen": det["first_seen"],
+                    "last_seen": det["last_seen"],
+                    "endpoints": dict(det["endpoints"].most_common()),
+                    "methods": dict(det["methods"].most_common()),
+                    "error_count": error_count,
+                    "error_rate": round(error_count / det["total"] * 100, 2) if det["total"] else 0,
+                    "unique_users": len(det["users"]),
+                    "status_codes": dict(det["levels"].most_common()),
+                })
+            ip_table.sort(key=lambda x: x["total"], reverse=True)
+
             ips = Counter(e.get("ip", "") for e in entries if e.get("ip"))
             charts["top_ips"] = [
                 {"label": k, "value": v} for k, v in ips.most_common(15)
             ]
-            tables["ip_summary"] = [
-                {"ip": k, "count": v, "pct": round(v / parsed * 100, 2) if parsed else 0}
-                for k, v in ips.most_common(20)
-            ]
+            tables["ip_details"] = ip_table
             summary["unique_ips"] = len(ips)
 
         if "endpoint" in detected:
+            ep_data = {}
+            for e in entries:
+                ep = e.get("endpoint")
+                if not ep:
+                    continue
+                if ep not in ep_data:
+                    ep_data[ep] = {
+                        "total": 0, "ips": Counter(), "methods": Counter(),
+                        "levels": Counter(), "users": set(),
+                    }
+                det = ep_data[ep]
+                det["total"] += 1
+                if e.get("ip"):
+                    det["ips"][e["ip"]] += 1
+                if e.get("method"):
+                    det["methods"][e["method"]] += 1
+                if e.get("level"):
+                    det["levels"][e["level"]] += 1
+                if e.get("user"):
+                    det["users"].add(e["user"])
+
+            ep_table = []
+            for ep, det in ep_data.items():
+                error_count = sum(v for k, v in det["levels"].items()
+                                  if k in ("ERROR", "FATAL", "CRITICAL"))
+                ep_table.append({
+                    "endpoint": ep,
+                    "total": det["total"],
+                    "unique_ips": len(det["ips"]),
+                    "top_ips": dict(det["ips"].most_common(5)),
+                    "methods": dict(det["methods"].most_common()),
+                    "error_count": error_count,
+                    "error_rate": round(error_count / det["total"] * 100, 2) if det["total"] else 0,
+                    "unique_users": len(det["users"]),
+                })
+            ep_table.sort(key=lambda x: x["total"], reverse=True)
+
             endpoints = Counter(e.get("endpoint", "") for e in entries if e.get("endpoint"))
             charts["top_endpoints"] = [
                 {"label": k[:80], "value": v} for k, v in endpoints.most_common(15)
             ]
-            tables["endpoint_summary"] = [
-                {"endpoint": k, "count": v, "pct": round(v / parsed * 100, 2) if parsed else 0}
-                for k, v in endpoints.most_common(20)
-            ]
+            tables["endpoint_details"] = ep_table
             summary["unique_endpoints"] = len(endpoints)
 
         if "bytes" in detected:

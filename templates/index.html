@@ -1597,7 +1597,7 @@ function renderBatchCharts(reports) {
                       <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
                     </svg>
                     <p class="text-gray-400 text-sm">Drop a log file here or click to browse</p>
-                    <p class="text-gray-600 text-xs mt-1">Supports .log, .txt, .gz, or any text file (max 50MB)</p>
+                    <p class="text-gray-600 text-xs mt-1">Supports .log, .txt, .gz, .csv, or any text file (max 50MB)</p>
                   </div>
                 </template>
                 <template x-if="file">
@@ -2550,37 +2550,142 @@ function renderBatchCharts(reports) {
                   <div class="overflow-x-auto table-scroll">
                     <table class="w-full text-sm">
                       <thead><tr class="border-b border-dark-600">
-                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                        <template x-if="report.log_type !== 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                        </template>
+                        <template x-if="report.log_type === 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                        </template>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requests</th>
-                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bytes</th>
-                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg RT</th>
-                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min RT</th>
-                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P95 RT</th>
-                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max RT</th>
+                        <template x-if="report.log_type !== 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bytes</th>
+                        </template>
+                        <template x-if="report.log_type !== 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg RT</th>
+                        </template>
+                        <template x-if="report.log_type !== 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min RT</th>
+                        </template>
+                        <template x-if="report.log_type !== 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P95 RT</th>
+                        </template>
+                        <template x-if="report.log_type !== 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max RT</th>
+                        </template>
+                        <template x-if="report.log_type === 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Errors</th>
+                        </template>
+                        <template x-if="report.log_type === 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error Rate</th>
+                        </template>
+                        <template x-if="report.log_type === 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Endpoints</th>
+                        </template>
+                        <template x-if="report.log_type === 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th>
+                        </template>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Seen</th>
                         <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
-                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Codes</th>
+                        <template x-if="report.log_type !== 'csv'">
+                          <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Codes</th>
+                        </template>
                       </tr></thead>
                       <tbody>
                         <template x-for="row in filterTable('ip_details', report.tables.ip_details).slice(0, rowLimit('ip_details'))" :key="row.ip">
                           <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
                             <td class="px-5 py-2.5 text-accent-400 font-mono text-xs clickable" x-text="row.ip" @click="searchQuery = row.ip"></td>
                             <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.total)"></td>
-                            <td class="px-5 py-2.5 text-gray-400" x-text="formatBytes(row.total_bytes)"></td>
-                            <td class="px-5 py-2.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
-                            <td class="px-5 py-2.5 text-gray-400" x-text="row.min_rt != null ? row.min_rt + 's' : '—'"></td>
-                            <td class="px-5 py-2.5 text-gray-400" x-text="row.p95_rt != null ? row.p95_rt + 's' : '—'"></td>
-                            <td class="px-5 py-2.5 text-gray-400" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
+                            <template x-if="report.log_type !== 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400" x-text="formatBytes(row.total_bytes)"></td>
+                            </template>
+                            <template x-if="report.log_type !== 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
+                            </template>
+                            <template x-if="report.log_type !== 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400" x-text="row.min_rt != null ? row.min_rt + 's' : '—'"></td>
+                            </template>
+                            <template x-if="report.log_type !== 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400" x-text="row.p95_rt != null ? row.p95_rt + 's' : '—'"></td>
+                            </template>
+                            <template x-if="report.log_type !== 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
+                            </template>
+                            <template x-if="report.log_type === 'csv'">
+                              <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.error_count)"></td>
+                            </template>
+                            <template x-if="report.log_type === 'csv'">
+                              <td class="px-5 py-2.5">
+                                <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium"
+                                  :class="{
+                                    'bg-danger/15 text-danger': row.error_rate > 50,
+                                    'bg-warning/15 text-warning': row.error_rate > 20 && row.error_rate <= 50,
+                                    'bg-success/15 text-success': row.error_rate <= 20,
+                                  }" x-text="row.error_rate + '%'"></span>
+                              </td>
+                            </template>
+                            <template x-if="report.log_type === 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.endpoints ? Object.entries(row.endpoints).map(([k,v]) => k+':'+v).join(' - ') : '—'"></td>
+                            </template>
+                            <template x-if="report.log_type === 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.unique_users || '—'"></td>
+                            </template>
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.first_seen || '—'"></td>
                             <td class="px-5 py-2.5 text-gray-500 text-xs whitespace-nowrap" x-text="row.last_seen || '—'"></td>
-                            <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' - ') : '—'"></td>
+                            <template x-if="report.log_type !== 'csv'">
+                              <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' - ') : '—'"></td>
+                            </template>
                           </tr>
                         </template>
                       </tbody>
                       <template x-if="report.tables.ip_details.length > rowLimit('ip_details')">
-                        <tfoot><tr><td colspan="10" class="text-center py-2">
+                        <tfoot><tr><td :colspan="report.log_type === 'csv' ? 8 : 10" class="text-center py-2">
                           <button @click="showMoreRows('ip_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
                           <button @click="showAllRows('ip_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.ip_details.length + ')'"></span></button>
+                        </td></tr></tfoot>
+                      </template>
+                    </table>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="report.tables.endpoint_details">
+                <div class="bg-dark-800 border border-dark-600 rounded-xl overflow-hidden">
+                  <div class="px-5 py-3 border-b border-dark-600"><h4 class="text-sm font-medium text-gray-300">Endpoint Details</h4></div>
+                  <div class="overflow-x-auto table-scroll">
+                    <table class="w-full text-sm">
+                      <thead><tr class="border-b border-dark-600">
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Endpoint</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requests</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unique IPs</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Errors</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Error Rate</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Top IPs</th>
+                        <th class="px-5 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th>
+                      </tr></thead>
+                      <tbody>
+                        <template x-for="row in filterTable('endpoint_details', report.tables.endpoint_details).slice(0, rowLimit('endpoint_details'))" :key="row.endpoint">
+                          <tr class="border-b border-dark-700/50 hover:bg-dark-700/30">
+                            <td class="px-5 py-2.5 text-accent-400 font-mono text-xs max-w-xs truncate clickable" x-text="row.endpoint" :title="row.endpoint" @click="searchQuery = row.endpoint"></td>
+                            <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.total)"></td>
+                            <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.unique_ips)"></td>
+                            <td class="px-5 py-2.5 text-gray-300" x-text="formatNum(row.error_count)"></td>
+                            <td class="px-5 py-2.5">
+                              <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium"
+                                :class="{
+                                  'bg-danger/15 text-danger': row.error_rate > 50,
+                                  'bg-warning/15 text-warning': row.error_rate > 20 && row.error_rate <= 50,
+                                  'bg-success/15 text-success': row.error_rate <= 20,
+                                }" x-text="row.error_rate + '%'"></span>
+                            </td>
+                            <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.top_ips ? Object.entries(row.top_ips).map(([k,v]) => k+':'+v).join(' - ') : '—'"></td>
+                            <td class="px-5 py-2.5 text-gray-400 text-xs" x-text="row.unique_users || '—'"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                      <template x-if="report.tables.endpoint_details.length > rowLimit('endpoint_details')">
+                        <tfoot><tr><td colspan="7" class="text-center py-2">
+                          <button @click="showMoreRows('endpoint_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition">Show more</button>
+                          <button @click="showAllRows('endpoint_details')" class="px-3 py-1 text-xs rounded bg-dark-700 border border-dark-600 text-gray-400 hover:text-accent-400 hover:border-accent-500/30 transition ml-2"><span x-text="'Show all (' + report.tables.endpoint_details.length + ')'"></span></button>
                         </td></tr></tfoot>
                       </template>
                     </table>

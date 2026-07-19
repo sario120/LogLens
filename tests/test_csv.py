@@ -320,16 +320,18 @@ class TestTables:
         raw = "ip,message\n10.0.0.1,a\n10.0.0.1,b\n10.0.0.2,c"
         parser = CsvParser()
         report = parser.parse(raw)
-        ips = report["tables"]["ip_summary"]
-        assert ips[0]["ip"] == "10.0.0.1"
-        assert ips[0]["count"] == 2
+        details = report["tables"]["ip_details"]
+        assert details[0]["ip"] == "10.0.0.1"
+        assert details[0]["total"] == 2
+        assert details[0]["error_count"] == 0
 
     def test_endpoint_summary(self):
-        raw = "endpoint,count\n/api,5\n/health,1\n/api,3"
+        raw = "endpoint,msg\n/api,a\n/health,b\n/api,c\n/api,d"
         parser = CsvParser()
         report = parser.parse(raw)
-        eps = report["tables"]["endpoint_summary"]
-        assert eps[0]["endpoint"] == "/api"
+        details = report["tables"]["endpoint_details"]
+        assert details[0]["endpoint"] == "/api"
+        assert details[0]["total"] == 3
 
     def test_error_samples(self):
         parser = CsvParser()
