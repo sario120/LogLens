@@ -139,6 +139,7 @@ def test_parse_and_analyze_all_types():
         (SYSLOG_SAMPLE, "syslog"),
         (API_BACKEND_SAMPLE, "api_backend"),
         (POSTGRES_SAMPLE, "postgres"),
+        (CSV_SAMPLE, "csv"),
     ]:
         report = parse_and_analyze(sample, log_type=log_type)
         assert report.get("log_type") == log_type
@@ -154,3 +155,64 @@ def test_parse_and_analyze_auto_confidence():
 def test_parse_and_analyze_none_type():
     report = parse_and_analyze(NGINX_ACCESS_SAMPLE, log_type=None)
     assert report.get("log_type") == "nginx_access"
+
+
+CSV_SAMPLE = '\n'.join([
+    'timestamp,level,endpoint,status,duration',
+    '2025-07-18 10:00:00,INFO,/api/v1,200,150',
+    '2025-07-18 10:00:01,ERROR,/api/v2,500,2300',
+    '2025-07-18 10:00:02,INFO,/api/v1,200,90',
+])
+
+CSV_NO_HEADER_MATCH = '\n'.join([
+    'just some random text',
+    'another random line',
+    'more random stuff',
+])
+
+
+def test_detect_csv():
+    typ, conf, scores = detect_log_type(CSV_SAMPLE)
+    assert typ == "csv"
+    assert conf > 0
+
+
+def test_detect_csv_not_false_positive():
+    typ, conf, scores = detect_log_type(CSV_NO_HEADER_MATCH)
+    assert typ is None
+
+
+def test_detect_csv_not_on_nginx():
+    typ, conf, scores = detect_log_type(NGINX_ACCESS_SAMPLE)
+    assert typ != "csv"
+
+
+def test_detect_csv_not_on_syslog():
+    typ, conf, scores = detect_log_type(SYSLOG_SAMPLE)
+    assert typ != "csv"
+
+
+def test_parse_and_analyze_csv_auto():
+    report = parse_and_analyze(CSV_SAMPLE, log_type="auto")
+    assert report.get("log_type") == "csv"
+    assert "detection_confidence" in report
+
+
+def test_parse_and_analyze_csv_explicit():
+    report = parse_and_analyze(CSV_SAMPLE, log_type="csv")
+    assert report["log_type"] == "csv"
+    assert report["parsed"] == 3
+
+
+def test_parse_and_analyze_all_types_includes_csv():
+    for sample, log_type in [
+        (NGINX_ACCESS_SAMPLE, "nginx_access"),
+        (NGINX_ERROR_SAMPLE, "nginx_error"),
+        (CONTAINER_SAMPLE, "container"),
+        (SYSLOG_SAMPLE, "syslog"),
+        (API_BACKEND_SAMPLE, "api_backend"),
+        (POSTGRES_SAMPLE, "postgres"),
+        (CSV_SAMPLE, "csv"),
+    ]:
+        report = parse_and_analyze(sample, log_type=log_type)
+        assert report.get("log_type") == log_type

@@ -4,6 +4,7 @@ from app.parsers.container import ContainerLogParser
 from app.parsers.syslog import SyslogParser
 from app.parsers.api_backend import ApiBackendParser
 from app.parsers.postgres import PostgresParser
+from app.parsers.csv_parser import CsvParser
 
 PARSERS = {
     "nginx_access": NginxAccessParser,
@@ -12,6 +13,7 @@ PARSERS = {
     "syslog": SyslogParser,
     "api_backend": ApiBackendParser,
     "postgres": PostgresParser,
+    "csv": CsvParser,
 }
 
 LOG_TYPES = list(PARSERS.keys())

@@ -1,3 +1,5 @@
+import csv
+import io
 import re
 from app.parsers import PARSERS
 from app.config import DETECT_SAMPLE_SIZE
@@ -26,7 +28,50 @@ TYPE_MARKERS = {
         re.compile(r'^\{'),
         re.compile(r'^\d{4}[-/]\d{2}[-/]\d{2}[T ]\d{2}:\d{2}:\d{2}'),
     ],
+    "csv": [
+        re.compile(r'^"?[a-zA-Z_][a-zA-Z0-9_]*"?\s*,\s*"?[a-zA-Z_][a-zA-Z0-9_]*"?\s*,\s*"?[a-zA-Z_][a-zA-Z0-9_]*"?'),
+        re.compile(r'^(?:"[^"]*"|[^",]+)(?:\s*,\s*(?:"[^"]*"|[^",]+)){3,}'),
+    ],
 }
+
+
+def detect_csv(raw: str) -> bool:
+    """Secondary validation: confirm content is actually CSV."""
+    lines = raw.strip().splitlines()
+    if len(lines) < 2:
+        return False
+
+    try:
+        reader = csv.reader(io.StringIO(lines[0].strip()))
+        header = [h.strip() for h in next(reader)]
+    except Exception:
+        return False
+
+    if len(header) < 2:
+        return False
+
+    alpha_count = sum(
+        1 for f in header
+        if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', f)
+    )
+    if alpha_count < len(header) * 0.5:
+        return False
+
+    expected = len(header)
+    consistent = 0
+    for line in lines[1:min(11, len(lines))]:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            reader = csv.reader(io.StringIO(line))
+            fields = next(reader)
+            if len(fields) == expected:
+                consistent += 1
+        except Exception:
+            continue
+
+    return consistent >= min(3, len(lines) - 1)
 
 
 def detect_log_type(raw: str) -> tuple[str | None, float, dict[str, int]]:
@@ -44,6 +89,10 @@ def detect_log_type(raw: str) -> tuple[str | None, float, dict[str, int]]:
                 if pat.search(line):
                     scores[lt] += 1
                     break
+
+    if scores.get("csv", 0) > 0:
+        if not detect_csv(raw):
+            scores["csv"] = 0
 
     total_matched = sum(scores.values())
     if not total_matched:
