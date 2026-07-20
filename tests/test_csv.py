@@ -303,7 +303,7 @@ class TestTables:
     def test_level_summary(self):
         parser = CsvParser()
         report = parser.parse(BASIC_CSV)
-        levels = report["tables"]["level_summary"]
+        levels = report["tables"]["levels"]
         assert len(levels) == 2
         info = [l for l in levels if l["level"] == "INFO"][0]
         assert info["count"] == 2
@@ -313,7 +313,7 @@ class TestTables:
         raw = "status,message\n200,OK\n404,Not Found\n200,OK"
         parser = CsvParser()
         report = parser.parse(raw)
-        statuses = report["tables"]["status_summary"]
+        statuses = report["tables"]["status_codes"]
         assert len(statuses) == 2
 
     def test_ip_summary(self):

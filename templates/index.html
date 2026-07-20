@@ -489,7 +489,8 @@ document.addEventListener('alpine:init', () => {
         levels: 500, processes: 500, top_clients: 500, incidents: 500, normalized_queries: 500,
         slow_queries: 500, lock_events: 500, autovacuum_events: 500, replication_events: 500,
         top_messages: 500, error_samples: 500, auth_failures_detail: 500, top_source_ips: 500,
-        correlation_timeline: 500, all_rows: 500,
+        correlation_timeline: 500, all_rows: 500, statement_types: 500, top_tables: 500,
+        warning_samples: 500,
       };
       return sizes[table] || 500;
     },
@@ -539,25 +540,21 @@ document.addEventListener('alpine:init', () => {
         lines.push('-'.repeat(50));
         const s = r.summary;
         if (s.total_entries != null) lines.push(`  Total Entries: ${s.total_entries.toLocaleString()}`);
-        if (s.parsed_entries != null && s.parsed_entries !== s.total_entries) lines.push(`  Parsed: ${s.parsed_entries.toLocaleString()}`);
         if (s.error_count != null) lines.push(`  Errors: ${s.error_count.toLocaleString()} (${s.error_rate || 0}%)`);
-        if (s.warn_count != null) lines.push(`  Warnings: ${s.warn_count.toLocaleString()}`);
-        if (s.info_count != null) lines.push(`  Info: ${s.info_count.toLocaleString()}`);
         if (s.matches_found != null) lines.push(`  Matches Found: ${s.matches_found.toLocaleString()}`);
         if (s.no_match_count != null) lines.push(`  No Match: ${s.no_match_count.toLocaleString()}`);
         if (s.unique_ips) lines.push(`  Unique IPs: ${s.unique_ips}`);
         if (s.unique_endpoints) lines.push(`  Unique Endpoints: ${s.unique_endpoints}`);
         if (s.unique_processes) lines.push(`  Unique Processes: ${s.unique_processes}`);
         if (s.unique_clients) lines.push(`  Unique Clients: ${s.unique_clients}`);
-        if (s.avg_requests_per_hour != null) lines.push(`  Avg Requests/Hour: ${s.avg_requests_per_hour}`);
-        if (s.max_concurrent != null) lines.push(`  Max Concurrent: ${s.max_concurrent}`);
         lines.push('');
       }
 
-      if (r.tables && r.tables.level_summary && r.tables.level_summary.length) {
+      const levelTable = r.tables && (r.tables.levels || r.tables.level_summary);
+      if (levelTable && levelTable.length) {
         lines.push('Level Breakdown');
         lines.push('-'.repeat(50));
-        r.tables.level_summary.forEach(l => {
+        levelTable.forEach(l => {
           lines.push(`  ${l.level}: ${l.count.toLocaleString()} (${l.pct}%)`);
         });
         lines.push('');
@@ -607,10 +604,11 @@ document.addEventListener('alpine:init', () => {
         lines.push('');
       }
 
-      if (r.tables && r.tables.status_codes && r.tables.status_codes.length) {
+      const statusTable = r.tables && (r.tables.status_codes || r.tables.status_summary);
+      if (statusTable && statusTable.length) {
         lines.push('Status Codes');
         lines.push('-'.repeat(50));
-        r.tables.status_codes.forEach(s => {
+        statusTable.forEach(s => {
           lines.push(`  ${s.status || s.code}: ${s.count} (${s.pct}%)`);
         });
         lines.push('');
@@ -645,22 +643,24 @@ document.addEventListener('alpine:init', () => {
         lines.push('');
       }
 
-      if (r.upstream_timing && r.upstream_timing.length) {
+      if (r.upstream_timing && typeof r.upstream_timing === 'object' && !Array.isArray(r.upstream_timing)) {
         lines.push('Upstream Timing');
         lines.push('-'.repeat(50));
-        r.upstream_timing.slice(0, 10).forEach(u => {
-          lines.push(`  ${u.name}: avg=${u.avg}s p95=${u.p95}s max=${u.max}s`);
+        Object.entries(r.upstream_timing).forEach(([name, data]) => {
+          if (data && data.avg != null) {
+            lines.push(`  ${name}: avg=${data.avg}s p95=${data.p95 || '—'}s max=${data.max || '—'}s (n=${data.count || '?'})`);
+          }
         });
         lines.push('');
       }
 
-      if (r.health) {
+      if (r.summary && r.summary.health) {
         lines.push('Health Status');
         lines.push('-'.repeat(50));
-        lines.push(`  Status: ${r.health.status.toUpperCase()}`);
-        if (r.health.warnings && r.health.warnings.length) {
+        lines.push(`  Status: ${r.summary.health.toUpperCase()}`);
+        if (r.summary.warnings && r.summary.warnings.length) {
           lines.push('  Warnings:');
-          r.health.warnings.forEach(w => lines.push(`    - ${w}`));
+          r.summary.warnings.forEach(w => lines.push(`    - ${w}`));
         }
         lines.push('');
       }
@@ -2053,8 +2053,6 @@ function renderBatchCharts(reports) {
                 { show: report.summary.unique_paths != null, label: 'Unique Paths', value: formatNum(report.summary.unique_paths), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
                 { show: report.summary.total_bytes != null, label: 'Total Transfer', value: formatBytes(report.summary.total_bytes), icon: 'M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12' },
                 { show: report.summary.error_rate != null && report.summary.error_rate > 0, label: 'Error Rate', value: formatPct(report.summary.error_rate), icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', cls: report.summary.error_rate > 5 ? 'text-danger' : report.summary.error_rate > 1 ? 'text-warning' : '' },
-                { show: report.summary.count != null && report.log_type !== 'nginx_access', label: 'Log Lines', value: formatNum(report.summary.count), icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-                { show: report.summary.count != null && report.log_type === 'nginx_access', label: 'Requests', value: formatNum(report.summary.count), icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
                 { show: report.summary.p50 != null, label: 'Median RT', value: report.summary.p50 + 's', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
                 { show: report.summary.p95 != null, label: 'P95 Response Time', value: report.summary.p95 + 's', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', cls: report.summary.p95 > 30 ? 'text-danger' : report.summary.p95 > 10 ? 'text-warning' : '' },
                 { show: report.summary.p99 != null, label: 'P99 Response Time', value: report.summary.p99 + 's', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', cls: report.summary.p99 > 30 ? 'text-danger' : report.summary.p99 > 10 ? 'text-warning' : '' },
@@ -3529,10 +3527,27 @@ function renderBatchCharts(reports) {
                             <thead><tr class="border-b border-dark-600">
                               <th class="px-3 py-1.5 text-left text-gray-500 uppercase">IP</th>
                               <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Requests</th>
-                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Bytes</th>
-                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Avg RT</th>
-                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">P95 RT</th>
-                              <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Max RT</th>
+                              <template x-if="r.log_type !== 'csv'">
+                                <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Bytes</th>
+                              </template>
+                              <template x-if="r.log_type !== 'csv'">
+                                <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Avg RT</th>
+                              </template>
+                              <template x-if="r.log_type !== 'csv'">
+                                <th class="px-3 py-1.5 text-left text-gray-500 uppercase">P95 RT</th>
+                              </template>
+                              <template x-if="r.log_type !== 'csv'">
+                                <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Max RT</th>
+                              </template>
+                              <template x-if="r.log_type === 'csv'">
+                                <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Endpoints</th>
+                              </template>
+                              <template x-if="r.log_type === 'csv'">
+                                <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Errors</th>
+                              </template>
+                              <template x-if="r.log_type === 'csv'">
+                                <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Users</th>
+                              </template>
                               <th class="px-3 py-1.5 text-left text-gray-500 uppercase">Status Codes</th>
                             </tr></thead>
                             <tbody>
@@ -3540,10 +3555,27 @@ function renderBatchCharts(reports) {
                                 <tr class="border-b border-dark-600/50">
                                   <td class="px-3 py-1.5 text-accent-400 font-mono text-xs" x-text="row.ip"></td>
                                   <td class="px-3 py-1.5 text-gray-300" x-text="formatNum(row.total)"></td>
-                                  <td class="px-3 py-1.5 text-gray-400" x-text="formatBytes(row.total_bytes)"></td>
-                                  <td class="px-3 py-1.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
-                                  <td class="px-3 py-1.5" :class="{'text-warning': row.p95_rt > 10}" x-text="row.p95_rt != null ? row.p95_rt + 's' : '—'"></td>
-                                  <td class="px-3 py-1.5" :class="{'text-danger': row.max_rt > 30}" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
+                                  <template x-if="r.log_type !== 'csv'">
+                                    <td class="px-3 py-1.5 text-gray-400" x-text="formatBytes(row.total_bytes)"></td>
+                                  </template>
+                                  <template x-if="r.log_type !== 'csv'">
+                                    <td class="px-3 py-1.5 text-gray-400" x-text="row.avg_rt != null ? row.avg_rt + 's' : '—'"></td>
+                                  </template>
+                                  <template x-if="r.log_type !== 'csv'">
+                                    <td class="px-3 py-1.5" :class="{'text-warning': row.p95_rt > 10}" x-text="row.p95_rt != null ? row.p95_rt + 's' : '—'"></td>
+                                  </template>
+                                  <template x-if="r.log_type !== 'csv'">
+                                    <td class="px-3 py-1.5" :class="{'text-danger': row.max_rt > 30}" x-text="row.max_rt != null ? row.max_rt + 's' : '—'"></td>
+                                  </template>
+                                  <template x-if="r.log_type === 'csv'">
+                                    <td class="px-3 py-1.5 text-gray-400 text-xs" x-text="row.endpoints ? Object.keys(row.endpoints).length : '—'"></td>
+                                  </template>
+                                  <template x-if="r.log_type === 'csv'">
+                                    <td class="px-3 py-1.5" :class="row.error_count > 0 ? 'text-danger' : 'text-gray-400'" x-text="formatNum(row.error_count)"></td>
+                                  </template>
+                                  <template x-if="r.log_type === 'csv'">
+                                    <td class="px-3 py-1.5 text-gray-400" x-text="formatNum(row.unique_users)"></td>
+                                  </template>
                                   <td class="px-3 py-1.5 text-gray-400 text-xs" x-text="row.status_codes ? Object.entries(row.status_codes).map(([k,v]) => k+':'+v).join(' ') : '—'"></td>
                                 </tr>
                               </template>

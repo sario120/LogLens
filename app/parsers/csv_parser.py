@@ -267,7 +267,7 @@ class CsvParser(BaseParser):
             charts["level_distribution"] = [
                 {"label": k, "value": v} for k, v in levels.most_common()
             ]
-            tables["level_summary"] = [
+            tables["levels"] = [
                 {"level": k, "count": v, "pct": round(v / parsed * 100, 2) if parsed else 0}
                 for k, v in levels.most_common()
             ]
@@ -308,7 +308,7 @@ class CsvParser(BaseParser):
             charts["status_distribution"] = [
                 {"label": k, "value": v} for k, v in statuses.most_common()
             ]
-            tables["status_summary"] = [
+            tables["status_codes"] = [
                 {"status": k, "count": v, "pct": round(v / parsed * 100, 2) if parsed else 0}
                 for k, v in statuses.most_common()
             ]

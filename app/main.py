@@ -383,7 +383,7 @@ def _make_entry_summary(entry: dict, log_type: str) -> str:
     elif log_type == "syslog":
         return f"{entry.get('process', '?')}: {entry.get('message', str(entry)[:100])}"
     elif log_type == "container":
-        return f"[{entry.get('stream', '?')}] {entry.get('log', str(entry)[:100])}"
+        return f"[{entry.get('stream', '?')}] {entry.get('message', entry.get('log', str(entry)[:100]))}"
     elif log_type == "api_backend":
         return f"{entry.get('level', '?')}: {entry.get('message', str(entry)[:100])}"
     elif log_type == "postgres":
