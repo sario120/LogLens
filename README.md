@@ -16,6 +16,7 @@ Lightweight, self-hosted log analysis portal. Paste or upload log files and get 
 - **Dark / Light Theme** — automatic system preference detection with manual toggle
 - **IP Exclusion** — filter out known IPs before analysis
 - **Performance Thresholds** — configurable slow/critical thresholds per analysis
+- **Percentile Metrics (P50 / P95)** — P50 (median) is the value below which 50% of samples fall; P95 means 95% of samples are faster than this threshold. Used in endpoint and upstream timing charts to distinguish typical performance from tail latency.
 - **Browser Notifications** — get notified when analysis completes
 - **Collapsible Sections** — expand/collapse report sections for faster navigation
 - **Search & Filter** — full-text search across all tables, click-to-filter, column sorting
