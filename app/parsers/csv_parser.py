@@ -163,24 +163,46 @@ class CsvParser(BaseParser):
     @staticmethod
     def _extract_level_from_results(entry: dict, raw: str):
         low = raw.lower()
-        if "'error'" in low or "'non_field_errors'" in low or "'detail'" in low:
-            entry["level"] = "ERROR"
-            m = re.search(r"'error':\s*'([^']*)'", raw)
-            if not m:
-                m = re.search(r"'detail':\s*ErrorDetail\(string='([^']*)'", raw)
-            if not m:
-                m = re.search(r"'non_field_errors':\s*\[ErrorDetail\(string='([^']*)'", raw)
-            entry["message"] = m.group(1) if m else raw[:200]
-        elif "'matched': 'Y'" in raw or "'matched': \"Y\"" in raw:
+
+        # Check matched status first — matched='Y' overrides error field
+        if "'matched': 'Y'" in raw or "'matched': \"Y\"" in raw:
             entry["level"] = "INFO"
             entry["message"] = "Match found"
-        elif "'matched': 'N'" in raw or "'matched': \"N\"" in raw:
+            return
+
+        if "'matched': 'N'" in raw or "'matched': \"N\"" in raw:
             entry["level"] = "WARN"
             m = re.search(r"'error':\s*'([^']*)'", raw)
             entry["message"] = m.group(1) if m else "No match"
-        elif "'token'" in low:
+            return
+
+        # Check for non-empty error value (not just the key existing)
+        m = re.search(r"'error':\s*'([^']+)'", raw)
+        if m:
+            entry["level"] = "ERROR"
+            entry["message"] = m.group(1)
+            return
+
+        m = re.search(r"'detail':\s*ErrorDetail\(string='([^']*)'", raw)
+        if m:
+            entry["level"] = "ERROR"
+            entry["message"] = m.group(1)
+            return
+
+        m = re.search(r"'non_field_errors':\s*\[ErrorDetail\(string='([^']*)'", raw)
+        if m:
+            entry["level"] = "ERROR"
+            entry["message"] = m.group(1)
+            return
+
+        if "'token'" in low:
             entry["level"] = "INFO"
             entry["message"] = "Token issued"
+            return
+
+        # Fallback — has results dict but no match/error/token
+        entry["level"] = "INFO"
+        entry["message"] = raw[:200]
 
     def _parse_line(self, line: str) -> dict | None:
         return self._parse_csv_row(line)
