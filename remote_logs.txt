@@ -1,0 +1,282 @@
+# Remote Log Analysis — Design Document
+
+## Goal
+Ship logs from multiple cloud servers to LogLens for centralized analysis and reporting.
+LogLens is deployed on one cloud server; logs come from many others.
+
+## Current State
+LogLens is stateless — processes logs on-the-fly, returns JSON report, no persistent storage.
+The analysis cache has a 5-minute TTL. After that, results are gone.
+
+---
+
+## Options Considered
+
+### Option 1: curl / curl + POST (Easiest, Zero Setup)
+  - No new software — every Linux server already has curl
+  - Can run ad-hoc from terminal, or automated via cron
+  - Uses existing LogLens API endpoints directly
+  - No persistent storage (reports expire after 5 min cache)
+
+### Option 2: Lightweight Agent Script (Recommended for cron)
+  - ~30-line bash script, SCP'd to each server
+  - Cron-driven (e.g., every 5 or 15 minutes)
+  - Handles auth, batching, retry, labeling by hostname
+  - Same Option 1 under the hood, just wrapped in automation
+  - Still needs report storage to be useful long-term
+
+### Option 3: Centralized Streaming (rsyslog / fluentbit / fluentd)
+  - Remote servers forward logs in real-time to LogLens server
+  - Requires a new streaming/receiver endpoint in LogLens
+  - Heavier infrastructure, daemon on each server
+  - Best for real-time alerting use cases
+
+---
+
+## LogLens API — Complete Reference
+
+Base URL: https://<your-loglens-server>:8600
+
+### Authentication
+
+  POST /api/auth
+  Body (JSON): {"api_key": "<YOUR_API_KEY>"}
+  Returns: {"token": "<HMAC_SIGNED_TOKEN>", "expires_in": <seconds>}
+  Token is valid for TOKEN_TTL seconds (default 3600).
+  Send as header: Authorization: Bearer <TOKEN>
+
+---
+
+## Option 1 — All curl Commands
+
+### 1a. Get Auth Token
+
+  curl -s -X POST https://<HOST>:8600/api/auth \
+    -H "Content-Type: application/json" \
+    -d '{"api_key":"YOUR_KEY"}' \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])"
+
+  # Save as variable:
+  TOKEN=$(curl -s -X POST https://<HOST>:8600/api/auth \
+    -H "Content-Type: application/json" \
+    -d '{"api_key":"YOUR_KEY"}' \
+    | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+
+### 1b. Single Log Analysis — JSON Body (paste content)
+
+  # Send raw log text directly
+  curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "content": "<raw log content here>",
+      "log_type": "auto",
+      "exclude_ips": "",
+      "slow_threshold": "",
+      "critical_threshold": ""
+    }'
+
+  # Send content from a local file using shell expansion:
+  curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -n --rawfile content /var/log/nginx/access.log '{content: $content}')"
+
+  # Or using python3 for proper JSON encoding (handles special chars, large files):
+  curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "
+import json, sys
+with open('/var/log/nginx/access.log') as f:
+    content = f.read()
+print(json.dumps({'content': content, 'log_type': 'auto'}))
+")"
+
+
+### 1c. Single Log Analysis — File Upload (multipart/form-data)
+
+  # Upload as a file (streaming, good for very large files)
+  curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -F "file=@/var/log/nginx/access.log" \
+    -F "log_type=auto" \
+    -F "exclude_ips=" \
+    -F "slow_threshold=" \
+    -F "critical_threshold="
+
+  # With log type override:
+  curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -F "file=@/var/log/syslog" \
+    -F "log_type=syslog"
+
+  # With IP exclusion:
+  curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -F "file=@/var/log/nginx/access.log" \
+    -F "exclude_ips=10.0.0.1,192.168.1.100"
+
+
+### 1d. Batch Analysis — Multiple Files at Once
+
+  # Send multiple log files in one request
+  curl -s -X POST https://<HOST>:8600/api/analyze-batch \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "
+import json
+files = []
+for path, name in [
+    ('/var/log/nginx/access.log', 'web-access.log'),
+    ('/var/log/nginx/error.log', 'web-error.log'),
+    ('/var/log/syslog', 'syslog'),
+    ('/var/log/auth.log', 'auth.log'),
+]:
+    with open(path) as f:
+        files.append({'content': f.read(), 'name': name})
+print(json.dumps({'files': files, 'label': 'web-server-01-$(date +%Y%m%d)'}))
+")"
+
+  # Batch with explicit log types:
+  curl -s -X POST https://<HOST>:8600/api/analyze-batch \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "
+import json
+files = [
+    {'content': open('/var/log/nginx/access.log').read(), 'name': 'access.log', 'log_type': 'nginx_access'},
+    {'content': open('/var/log/nginx/error.log').read(), 'name': 'error.log', 'log_type': 'nginx_error'},
+]
+print(json.dumps({'files': files, 'label': 'prod-web-01'}))
+")"
+
+
+### 1e. Cross-Type Correlation
+
+  # Correlate multiple log types into a single timeline
+  curl -s -X POST https://<HOST>:8600/api/analyze-correlate \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "
+import json
+files = [
+    {'content': open('/var/log/nginx/access.log').read(), 'name': 'access.log', 'log_type': 'nginx_access'},
+    {'content': open('/var/log/nginx/error.log').read(), 'name': 'error.log', 'log_type': 'nginx_error'},
+    {'content': open('/var/log/syslog').read(), 'name': 'syslog', 'log_type': 'syslog'},
+]
+print(json.dumps({'files': files, 'exclude_ips': ''}))
+")"
+
+
+### 1f. Get Raw Context Around a Specific Entry
+
+  # First run analyze to get an analysis_id
+  ANALYSIS_ID=$(curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "
+import json
+with open('/var/log/nginx/access.log') as f:
+    print(json.dumps({'content': f.read()}))
+")" | python3 -c "import sys,json; print(json.load(sys.stdin)['analysis_id'])")
+
+  # Then fetch context around entry index 42 (±5 lines):
+  curl -s -X GET "https://<HOST>:8600/api/context/${ANALYSIS_ID}/42?before=5&after=5" \
+    -H "Authorization: Bearer $TOKEN"
+
+  # Wider context window:
+  curl -s -X GET "https://<HOST>:8600/api/context/${ANALYSIS_ID}/42?before=20&after=20" \
+    -H "Authorization: Bearer $TOKEN"
+
+
+### 1g. One-Liner: Ship a Log File and Save Report Locally
+
+  # Ship nginx access log and save the full JSON report to a file
+  TOKEN=$(curl -s -X POST https://<HOST>:8600/api/auth \
+    -H "Content-Type: application/json" \
+    -d '{"api_key":"YOUR_KEY"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+  curl -s -X POST https://<HOST>:8600/api/analyze \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "import json; print(json.dumps({'content': open('/var/log/nginx/access.log').read()}))")" \
+    | python3 -m json.tool \
+    > "/tmp/report-$(hostname)-$(date +%Y%m%d-%H%M).json"
+
+
+### 1h. One-Liner: Ship Multiple Logs and Save a Combined Report
+
+  TOKEN=$(curl -s -X POST https://<HOST>:8600/api/auth \
+    -H "Content-Type: application/json" \
+    -d '{"api_key":"YOUR_KEY"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+  curl -s -X POST https://<HOST>:8600/api/analyze-batch \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(python3 -c "
+import json
+files = []
+for p, n in [('/var/log/nginx/access.log','access'), ('/var/log/nginx/error.log','error'), ('/var/log/syslog','syslog')]:
+    with open(p) as f: files.append({'content': f.read(), 'name': n})
+print(json.dumps({'files': files, 'label': '$(hostname)'}))
+")" \
+    | python3 -m json.tool \
+    > "/tmp/batch-report-$(hostname)-$(date +%Y%m%d-%H%M).json"
+
+
+---
+
+## Environment Variables (Reference)
+
+  LOGS_PORTAL_API_KEY       — API key for auth (required, no default)
+  LOGS_PORTAL_SECRET        — HMAC signing secret (required, no default)
+  LOGS_PORTAL_MAX_UPLOAD_MB — Max upload size in MB (default: 1024 = 1GB)
+  LOGS_PORTAL_TOKEN_TTL     — Token lifetime in seconds (default: 3600)
+  LOGS_PORTAL_SLOW_THRESHOLD     — Slow query threshold in seconds (default: 10.0)
+  LOGS_PORTAL_CRITICAL_THRESHOLD — Critical threshold in seconds (default: 30.0)
+  LOGS_PORTAL_DETECT_SAMPLE_SIZE — Lines sampled for auto-detection (default: 50)
+
+---
+
+## Log Type Overrides
+
+  auto              — auto-detect (default)
+  nginx_access      — Nginx access logs (combined format)
+  nginx_error       — Nginx error logs
+  syslog            — Linux syslog / auth.log
+  container         — Docker / containerd / Kubernetes logs
+  api_backend       — API backend logs (JSON structured or plain text)
+  postgres          — PostgreSQL logs
+  csv               — CSV / tabular log data
+
+---
+
+## Notes
+
+  - Token expires in 1 hour. Re-auth as needed for long-running scripts.
+  - Auth endpoint is rate-limited (default: 3 attempts per 5 minutes per IP).
+  - LogLens caches analysis results for 5 minutes for context lookups.
+  - Report data is returned in full in the JSON response — no server storage.
+  - The _entries and _line_numbers fields in the response contain the full
+    parsed data if you need to post-process locally.
+  - For files > 1GB, set LOGS_PORTAL_MAX_UPLOAD_MB to a higher value.
+  - The /api/analyze file upload mode reads the entire file into memory.
+    For very large files, ensure the server has sufficient RAM.
+
+---
+
+## What's Missing for Production Use
+
+  1. Report persistence — no way to store/browse past reports
+     → Need POST /api/reports + GET /api/reports endpoints
+     → Need "Stored Reports" view in the frontend
+
+  2. Agent distribution — need a script template that can be SCP'd/installed
+
+  3. Agent auto-update — ability to push script updates to all servers
+
+  4. Alerts — send notification (Slack/email/webhook) when thresholds exceeded
+
+  5. Dashboard — multi-server overview with aggregated metrics

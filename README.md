@@ -5,13 +5,14 @@ Lightweight, self-hosted log analysis portal. Paste or upload log files and get 
 ## Features
 
 - **Interactive Reports** — timeline charts, status distribution, endpoint performance, IP analysis, hourly aggregation
-- **6 Log Parsers** — nginx access/error, container (Docker/K8s), syslog/auth.log, API backend (JSON/structured), PostgreSQL
+- **7 Log Parsers** — nginx access/error, container (Docker/K8s), syslog/auth.log, API backend (JSON/structured), PostgreSQL, CSV/tabular
 - **Auto-Detection** — identifies log type automatically with confidence scoring
 - **Batch Comparison** — upload multiple files side-by-side with per-file and cross-reference views
 - **Raw Log Browser** — click any error or incident to jump to the exact source line
 - **Session Labels** — name your analysis runs for easy retrieval
 - **Report History** — all past analyses saved locally in your browser (IndexedDB)
 - **PDF Export** — landscape A3 reports with full charts and tables
+- **CSV Export** — tabular export of report data for spreadsheets
 - **Text Summary** — plain-text export for team chat and incident reports
 - **Dark / Light Theme** — automatic system preference detection with manual toggle
 - **IP Exclusion** — filter out known IPs before analysis
@@ -31,6 +32,7 @@ Lightweight, self-hosted log analysis portal. Paste or upload log files and get 
 | **Syslog / Auth** | BSD syslog, rsyslog, `/var/log/auth.log` — including SSH bruteforce and failed login detection |
 | **API Backend** | JSON-lines, `timestamp level [component] message`, and structured formats |
 | **PostgreSQL** | Standard CSV and stderr log format with query normalization, lock detection, autovacuum analysis, and replication lag monitoring |
+| **CSV / Tabular** | Any CSV file with header row — auto-maps 50+ column name variants to standard fields (timestamp, level, IP, endpoint, method, status, duration, bytes, user) |
 
 ## Quick Start
 
@@ -78,7 +80,7 @@ All settings are controlled via environment variables. See [`.env.example`](.env
 | `LOGS_PORTAL_WORKERS` | `2` | Uvicorn worker count |
 | `LOGS_PORTAL_AUTH_MAX_ATTEMPTS` | `3` | Failed login attempts before lockout |
 | `LOGS_PORTAL_AUTH_WINDOW_SECONDS` | `300` | Lockout duration (seconds) |
-| `LOGS_PORTAL_MAX_UPLOAD_MB` | `50` | Max upload size (MB) |
+| `LOGS_PORTAL_MAX_UPLOAD_MB` | `1024` | Max upload size (MB) |
 | `LOGS_PORTAL_UPLOAD_CHUNK_KB` | `1024` | Upload chunk size (KB) |
 | `LOGS_PORTAL_TOKEN_TTL` | `3600` | Session token lifetime (seconds) |
 | `LOGS_PORTAL_SLOW_THRESHOLD` | `10.0` | Slow request threshold (seconds) |
@@ -108,7 +110,8 @@ logs_portal/
 │   │   ├── container.py
 │   │   ├── syslog.py
 │   │   ├── api_backend.py
-│   │   └── postgres.py
+│   │   ├── postgres.py
+│   │   └── csv_parser.py
 │   └── analyzers/
 │       └── report.py         # Report generation, log type detection, chart data
 ├── templates/
@@ -123,17 +126,44 @@ logs_portal/
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/auth` | Authenticate with API key, receive session cookie |
-| `POST` | `/api/logout` | Invalidate session |
-| `GET` | `/api/session` | Check if current session is valid |
-| `POST` | `/api/analyze` | Paste-based log analysis |
-| `POST` | `/api/upload` | File upload and analysis |
-| `POST` | `/api/batch` | Multi-file analysis |
-| `POST` | `/api/correlate` | Cross-reference multiple log sources |
-| `POST` | `/api/context` | Retrieve raw log context for a specific line |
-| `GET` | `/` | Web interface |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/api/auth` | No | Authenticate with API key, receive session token |
+| `POST` | `/api/logout` | No | Invalidate session |
+| `GET` | `/api/session` | No | Check if current session is valid |
+| `POST` | `/api/analyze` | Yes | Analyze a single log (JSON body or file upload) |
+| `GET` | `/api/context/{analysis_id}/{entry_idx}` | Yes | Retrieve raw log context around a specific entry |
+| `POST` | `/api/analyze-batch` | Yes | Analyze multiple log files in one request |
+| `POST` | `/api/analyze-correlate` | Yes | Cross-reference multiple log sources into a unified timeline |
+| `GET` | `/` | No | Web interface |
+
+## Remote Log Analysis
+
+LogLens can analyze logs from remote servers without storing them. Use the API directly via `curl`, or deploy a lightweight agent script via cron. See [`remote_logs.txt`](remote_logs.txt) for the full design document and all available commands.
+
+### Quick Example
+
+```bash
+# Authenticate
+TOKEN=$(curl -s -X POST https://your-server:8600/api/auth \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":"YOUR_KEY"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+# Ship a log file and get the report
+curl -s -X POST https://your-server:8600/api/analyze \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$(python3 -c "import json; print(json.dumps({'content': open('/var/log/nginx/access.log').read()}))")" \
+  | python3 -m json.tool
+```
+
+### Supported Approaches
+
+| Approach | Setup | Use Case |
+|----------|-------|----------|
+| **curl one-liner** | None | Ad-hoc analysis from any server |
+| **Agent script + cron** | SCP a bash script | Automated periodic collection across many servers |
+| **rsyslog / fluentbit** | Daemon config on each server | Real-time streaming (requires additional LogLens endpoint) |
 
 ## License
 
