@@ -226,13 +226,41 @@ class CsvParser(BaseParser):
 
         if "timestamp" in detected:
             hourly = Counter()
+            daily = Counter()
+            daily_by_level = {}
             for e in entries:
                 ts = e.get("timestamp", "")
                 if ts:
                     hourly[self._hour_key(ts)] += 1
+                    day = self._day_key(ts)
+                    daily[day] += 1
+                    lvl = e.get("level", "UNKNOWN")
+                    if day not in daily_by_level:
+                        daily_by_level[day] = Counter()
+                    daily_by_level[day][lvl] += 1
             charts["hourly_timeline"] = [
                 {"label": h, "value": c} for h, c in sorted(hourly.items())
             ]
+            charts["daily_timeline"] = [
+                {"label": d, "value": c} for d, c in sorted(daily.items())
+            ]
+            daily_perf = []
+            for d in sorted(daily.keys()):
+                lvl_counts = daily_by_level.get(d, Counter())
+                error_count = sum(v for k, v in lvl_counts.items()
+                                  if k in ("ERROR", "FATAL", "CRITICAL"))
+                warn_count = sum(v for k, v in lvl_counts.items() if k == "WARN")
+                info_count = sum(v for k, v in lvl_counts.items() if k == "INFO")
+                total_day = daily[d]
+                daily_perf.append({
+                    "date": d,
+                    "requests": total_day,
+                    "errors": error_count,
+                    "warnings": warn_count,
+                    "info": info_count,
+                    "error_rate": round(error_count / total_day * 100, 2) if total_day else 0,
+                })
+            tables["daily_performance"] = daily_perf
 
         if "level" in detected:
             levels = Counter(e.get("level", "UNKNOWN") for e in entries)
@@ -250,6 +278,9 @@ class CsvParser(BaseParser):
             summary["error_count"] = error_count
             summary["error_rate"] = round(error_count / parsed * 100, 2) if parsed else 0
 
+            summary["matches_found"] = levels.get("INFO", 0)
+            summary["no_match_count"] = levels.get("WARN", 0)
+
             errors = [
                 e for e in entries
                 if (e.get("level") or "").upper() in ("ERROR", "FATAL", "CRITICAL")
@@ -260,6 +291,17 @@ class CsvParser(BaseParser):
                     | {"_entry_idx": entries.index(e)}
                     for e in errors
                 ]
+
+        if "message" in detected:
+            messages = Counter(e.get("message", "UNKNOWN") for e in entries if e.get("message"))
+            charts["message_distribution"] = [
+                {"label": k[:80] + ("..." if len(k) > 80 else ""), "value": v}
+                for k, v in messages.most_common()
+            ]
+            tables["message_summary"] = [
+                {"message": k[:120], "count": v, "pct": round(v / parsed * 100, 2) if parsed else 0}
+                for k, v in messages.most_common()
+            ]
 
         if "status" in detected:
             statuses = Counter(str(e.get("status", "")) for e in entries)

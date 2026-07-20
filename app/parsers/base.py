@@ -90,6 +90,19 @@ class BaseParser(ABC):
         return {"center_line": center, "context": context_lines}
 
     @staticmethod
+    def _day_key(ts: str) -> str:
+        if not ts:
+            return "unknown"
+        if "T" in ts:
+            return ts.split("T")[0]
+        parts = ts.split()
+        if len(parts) >= 3:
+            return parts[0] if parts[0].count("-") >= 2 else "unknown"
+        if len(parts) >= 2 and "-" in parts[0]:
+            return parts[0]
+        return "unknown"
+
+    @staticmethod
     def _hour_key(ts: str) -> str:
         if not ts:
             return "unknown"
