@@ -218,6 +218,8 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
         return JSONResponse(report)
     analysis_id = _cache_analysis(parser, report)
     report["analysis_id"] = analysis_id
+    report["slow_threshold"] = _cfg.SLOW_THRESHOLD
+    report["critical_threshold"] = _cfg.CRITICAL_THRESHOLD
     return JSONResponse(report)
 
 
@@ -282,6 +284,8 @@ async def analyze_batch(request: Request):
             if not r.get("error"):
                 aid = _cache_analysis(p, r)
                 r["analysis_id"] = aid
+                r["slow_threshold"] = _cfg.SLOW_THRESHOLD
+                r["critical_threshold"] = _cfg.CRITICAL_THRESHOLD
             r["filename"] = fname
             reports.append(r)
     finally:
