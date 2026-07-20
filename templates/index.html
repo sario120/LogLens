@@ -527,59 +527,145 @@ document.addEventListener('alpine:init', () => {
       const r = this.report;
       const lines = [];
       lines.push('LogLens Analysis Report');
-      lines.push('=' .repeat(40));
+      lines.push('='.repeat(50));
       lines.push(`Type: ${r.log_type_label || r.log_type || 'unknown'}`);
       if (r.time_range && r.time_range.start) lines.push(`Time Range: ${r.time_range.start} — ${r.time_range.end}`);
       if (r.parsed != null) lines.push(`Entries: ${r.parsed} of ${r.total_lines}`);
       if (r.processing_ms != null) lines.push(`Parsed in: ${r.processing_ms}ms`);
       lines.push('');
-      lines.push('Summary');
-      lines.push('-'.repeat(40));
+
       if (r.summary) {
-        Object.entries(r.summary).forEach(([k, v]) => {
-          if (v != null && typeof v === 'number' && k !== 'health') {
-            lines.push(`  ${k.replace(/_/g, ' ')}: ${v.toLocaleString()}`);
-          }
-        });
-      }
-      if (r.duration_stats) {
+        lines.push('Summary');
+        lines.push('-'.repeat(50));
+        const s = r.summary;
+        if (s.total_entries != null) lines.push(`  Total Entries: ${s.total_entries.toLocaleString()}`);
+        if (s.parsed_entries != null && s.parsed_entries !== s.total_entries) lines.push(`  Parsed: ${s.parsed_entries.toLocaleString()}`);
+        if (s.error_count != null) lines.push(`  Errors: ${s.error_count.toLocaleString()} (${s.error_rate || 0}%)`);
+        if (s.warn_count != null) lines.push(`  Warnings: ${s.warn_count.toLocaleString()}`);
+        if (s.info_count != null) lines.push(`  Info: ${s.info_count.toLocaleString()}`);
+        if (s.matches_found != null) lines.push(`  Matches Found: ${s.matches_found.toLocaleString()}`);
+        if (s.no_match_count != null) lines.push(`  No Match: ${s.no_match_count.toLocaleString()}`);
+        if (s.unique_ips) lines.push(`  Unique IPs: ${s.unique_ips}`);
+        if (s.unique_endpoints) lines.push(`  Unique Endpoints: ${s.unique_endpoints}`);
+        if (s.unique_processes) lines.push(`  Unique Processes: ${s.unique_processes}`);
+        if (s.unique_clients) lines.push(`  Unique Clients: ${s.unique_clients}`);
+        if (s.avg_requests_per_hour != null) lines.push(`  Avg Requests/Hour: ${s.avg_requests_per_hour}`);
+        if (s.max_concurrent != null) lines.push(`  Max Concurrent: ${s.max_concurrent}`);
         lines.push('');
+      }
+
+      if (r.tables && r.tables.level_summary && r.tables.level_summary.length) {
+        lines.push('Level Breakdown');
+        lines.push('-'.repeat(50));
+        r.tables.level_summary.forEach(l => {
+          lines.push(`  ${l.level}: ${l.count.toLocaleString()} (${l.pct}%)`);
+        });
+        lines.push('');
+      }
+
+      if (r.duration_stats) {
         lines.push('Duration Stats');
-        lines.push('-'.repeat(40));
+        lines.push('-'.repeat(50));
         lines.push(`  Count: ${r.duration_stats.count}`);
         lines.push(`  Avg: ${r.duration_stats.avg}ms`);
         lines.push(`  P50: ${r.duration_stats.p50}ms`);
         lines.push(`  P95: ${r.duration_stats.p95}ms`);
         lines.push(`  P99: ${r.duration_stats.p99}ms`);
         lines.push(`  Max: ${r.duration_stats.max}ms`);
-      }
-      if (r.slow_queries && r.slow_queries.length) {
         lines.push('');
+      }
+
+      if (r.tables && r.tables.message_summary && r.tables.message_summary.length) {
+        lines.push('Message Breakdown');
+        lines.push('-'.repeat(50));
+        r.tables.message_summary.forEach(m => {
+          lines.push(`  [${m.pct}%] ${m.count.toLocaleString()} — ${m.message}`);
+        });
+        lines.push('');
+      }
+
+      if (r.tables && r.tables.daily_performance && r.tables.daily_performance.length) {
+        lines.push('Daily Breakdown');
+        lines.push('-'.repeat(50));
+        r.tables.daily_performance.forEach(d => {
+          const parts = [`${d.date}: ${d.requests.toLocaleString()} entries`];
+          if (d.errors) parts.push(`${d.errors} errors`);
+          if (d.warnings) parts.push(`${d.warnings} warnings`);
+          if (d.error_rate) parts.push(`${d.error_rate}% error rate`);
+          lines.push(`  ${parts.join(', ')}`);
+        });
+        lines.push('');
+      }
+
+      if (r.slow_queries && r.slow_queries.length) {
         lines.push(`Slow Queries (${r.slow_queries.length})`);
-        lines.push('-'.repeat(40));
+        lines.push('-'.repeat(50));
         r.slow_queries.slice(0, 10).forEach(q => {
           lines.push(`  [${q.timestamp}] ${q.duration_ms}ms ${q.stmt_type || ''} ${q.table || ''}`);
           lines.push(`    ${q.message}`);
         });
-      }
-      if (r.tables && r.tables.status_codes) {
         lines.push('');
+      }
+
+      if (r.tables && r.tables.status_codes && r.tables.status_codes.length) {
         lines.push('Status Codes');
-        lines.push('-'.repeat(40));
+        lines.push('-'.repeat(50));
         r.tables.status_codes.forEach(s => {
-          lines.push(`  ${s.status}: ${s.count} (${s.pct}%)`);
+          lines.push(`  ${s.status || s.code}: ${s.count} (${s.pct}%)`);
         });
-      }
-      if (r.tables && r.tables.ip_details) {
         lines.push('');
-        lines.push('Top IPs');
-        lines.push('-'.repeat(40));
-        r.tables.ip_details.slice(0, 10).forEach(ip => {
-          lines.push(`  ${ip.ip}: ${ip.count} requests, ${ip.error_rate}% errors`);
-        });
       }
-      lines.push('');
-      lines.push(`Generated by LogLens on ${new Date().toLocaleString()}`);
+
+      if (r.tables && r.tables.ip_details && r.tables.ip_details.length) {
+        lines.push('IP Details');
+        lines.push('-'.repeat(50));
+        r.tables.ip_details.slice(0, 15).forEach(ip => {
+          const reqs = ip.total || ip.count || '?';
+          lines.push(`  ${ip.ip}: ${reqs} requests, ${ip.error_rate || 0}% errors`);
+          if (ip.endpoints && typeof ip.endpoints === 'object') {
+            const eps = Object.entries(ip.endpoints).slice(0, 5);
+            if (eps.length) lines.push(`    Endpoints: ${eps.map(([e, c]) => `${e} (${c})`).join(', ')}`);
+          }
+          if (ip.methods && typeof ip.methods === 'object') {
+            lines.push(`    Methods: ${Object.entries(ip.methods).map(([m, c]) => `${m} (${c})`).join(', ')}`);
+          }
+        });
+        lines.push('');
+      }
+
+      if (r.tables && r.tables.endpoint_details && r.tables.endpoint_details.length) {
+        lines.push('Endpoint Details');
+        lines.push('-'.repeat(50));
+        r.tables.endpoint_details.slice(0, 15).forEach(ep => {
+          const reqs = ep.total || ep.count || '?';
+          const errs = ep.error_count || ep.errors || 0;
+          const erate = ep.error_rate || 0;
+          lines.push(`  ${ep.endpoint}: ${reqs} requests, ${errs} errors (${erate}%)`);
+        });
+        lines.push('');
+      }
+
+      if (r.upstream_timing && r.upstream_timing.length) {
+        lines.push('Upstream Timing');
+        lines.push('-'.repeat(50));
+        r.upstream_timing.slice(0, 10).forEach(u => {
+          lines.push(`  ${u.name}: avg=${u.avg}s p95=${u.p95}s max=${u.max}s`);
+        });
+        lines.push('');
+      }
+
+      if (r.health) {
+        lines.push('Health Status');
+        lines.push('-'.repeat(50));
+        lines.push(`  Status: ${r.health.status.toUpperCase()}`);
+        if (r.health.warnings && r.health.warnings.length) {
+          lines.push('  Warnings:');
+          r.health.warnings.forEach(w => lines.push(`    - ${w}`));
+        }
+        lines.push('');
+      }
+
+      lines.push('Generated by LogLens on ' + new Date().toLocaleString());
       const blob = new Blob([lines.join('\n')], {type: 'text/plain'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `loglens-summary-${r.log_type}-${Date.now()}.txt`;
