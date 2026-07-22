@@ -187,7 +187,7 @@ document.addEventListener('alpine:init', () => {
     excludeIps: '',
     slowThreshold: '',
     criticalThreshold: '',
-    report: null,
+    report: {},
     error: null,
     file: null,
     pasteContent: '',
@@ -347,10 +347,10 @@ document.addEventListener('alpine:init', () => {
       LogLensDB.clearDraft();
       this._notifyComplete();
     },
-    reset() { this.view = 'upload'; this.report = null; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; this.slowThreshold = ''; this.criticalThreshold = ''; this.reportLabel = ''; this.searchQuery = ''; this.tableFilters = {}; this.sortKey = {}; this.sortDir = {}; this.expandedRow = {}; this.collapsedSections = {}; this.tableRowLimits = {}; this.chartsRendered = false; this.updateHash(); this.$nextTick(() => { const el = document.getElementById('main-content'); if (el) el.focus(); }); },
+    reset() { this.view = 'upload'; this.report = {}; this.error = null; this.file = null; this.pasteContent = ''; this.logType = 'auto'; this.excludeIps = ''; this.slowThreshold = ''; this.criticalThreshold = ''; this.reportLabel = ''; this.searchQuery = ''; this.tableFilters = {}; this.sortKey = {}; this.sortDir = {}; this.expandedRow = {}; this.collapsedSections = {}; this.tableRowLimits = {}; this.chartsRendered = false; this.updateHash(); this.$nextTick(() => { const el = document.getElementById('main-content'); if (el) el.focus(); }); },
 
     async saveToHistory() {
-      if (!this.report) return;
+      if (!this.report.parsed) return;
       try {
         const id = await LogLensDB.saveReport(this.report, this.reportLabel);
         this._showToast('Report saved to history', 'success');
@@ -516,7 +516,7 @@ document.addEventListener('alpine:init', () => {
       this._hashUpdating = false;
     },
     exportJson() {
-      if (!this.report) return;
+      if (!this.report.parsed) return;
       const blob = new Blob([JSON.stringify(this.report, null, 2)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `loglens-report-${this.report.log_type}-${Date.now()}.json`;
@@ -761,7 +761,7 @@ document.addEventListener('alpine:init', () => {
       </div>`;
     },
     async exportPdf() {
-      if (!this.report) return;
+      if (!this.report.parsed) return;
       this.pdfExporting = true;
       await this.$nextTick();
       await new Promise(r => setTimeout(r, 1100));
