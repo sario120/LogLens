@@ -1,8 +1,10 @@
 import csv
 import io
 import re
+import time
 from collections import Counter
 from app.parsers.base import BaseParser
+from app.config import MAX_STORED_ENTRIES
 
 COLUMN_MAP = {
     "timestamp": ["timestamp", "time", "date", "created_at", "occurred_at", "ts",
@@ -80,6 +82,7 @@ class CsvParser(BaseParser):
         t0 = time.time()
         lines = raw.strip().splitlines()
         self._raw_lines = lines
+        self._source_file = None
         self.entries = []
         self._line_numbers = []
         self.errors = 0
@@ -124,6 +127,62 @@ class CsvParser(BaseParser):
 
         parsed = len(self.entries)
 
+        if exclude_ips:
+            skip = set(exclude_ips)
+            filtered = [
+                (e, ln) for e, ln in zip(self.entries, self._line_numbers)
+                if self._get_ip(e) not in skip
+            ]
+            self.entries = [e for e, _ in filtered]
+            self._line_numbers = [ln for _, ln in filtered]
+            parsed = len(self.entries)
+
+        self.processing_ms = round((time.time() - t0) * 1000, 1)
+        self._compute_time_range()
+        return self._build_report(total, parsed)
+
+    def parse_file(self, filepath: str, exclude_ips: list[str] | None = None) -> dict:
+        t0 = time.time()
+        self._source_file = filepath
+        self._raw_lines = []
+        self.entries = []
+        self._line_numbers = []
+        self.errors = 0
+
+        try:
+            with open(filepath, "r", errors="replace", newline="") as f:
+                first_line = f.readline()
+                if not first_line.strip():
+                    self.processing_ms = round((time.time() - t0) * 1000, 1)
+                    return self._build_report(0, 0)
+                header_reader = csv.reader(io.StringIO(first_line.strip()))
+                self._headers = [h.strip() for h in next(header_reader)]
+                if len(self._headers) < 2:
+                    self.errors = 1
+                    self.processing_ms = round((time.time() - t0) * 1000, 1)
+                    return self._build_report(1, 0)
+                self._column_mapping = self._auto_map_columns(self._headers)
+                self._detected_columns = {v for v in self._column_mapping.values() if v}
+                self._all_columns = list(self._headers)
+
+                total = 1
+                for i, line in enumerate(f, start=1):
+                    total += 1
+                    line = line.strip()
+                    if not line:
+                        continue
+                    entry = self._parse_csv_row(line)
+                    if entry:
+                        if len(self.entries) < MAX_STORED_ENTRIES:
+                            self.entries.append(entry)
+                            self._line_numbers.append(i)
+                    else:
+                        self.errors += 1
+        except Exception:
+            self.processing_ms = round((time.time() - t0) * 1000, 1)
+            return self._build_report(0, 0)
+
+        parsed = len(self.entries)
         if exclude_ips:
             skip = set(exclude_ips)
             filtered = [

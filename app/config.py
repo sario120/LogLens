@@ -32,6 +32,12 @@ CRITICAL_THRESHOLD = float(os.getenv("LOGS_PORTAL_CRITICAL_THRESHOLD", "30.0"))
 # --- Auto-detection ---
 DETECT_SAMPLE_SIZE = int(os.getenv("LOGS_PORTAL_DETECT_SAMPLE_SIZE", "50"))
 
+# --- Memory optimization ---
+# Max entry objects kept in memory for detail tables/charts.
+# ALL lines are still counted in summary stats; entries beyond this cap
+# are counted but not stored (keeps memory flat for huge files).
+MAX_STORED_ENTRIES = int(os.getenv("LOGS_PORTAL_MAX_STORED_ENTRIES", "200000"))
+
 _INSECURE_DEFAULTS = {
     "LOGS_PORTAL_API_KEY": "changeme",
     "LOGS_PORTAL_SECRET": "internal-portal-secret-change-in-prod",

@@ -136,3 +136,56 @@ def parse_and_analyze(raw: str, log_type: str | None = None, exclude_ips: list[s
     except Exception as exc:
         result = {"error": f"Failed to parse {log_type} logs: {exc}", "log_type": log_type}
         return (result, None) if return_parser else result
+
+
+def detect_log_type_from_file(filepath: str) -> tuple[str | None, float, dict[str, int]]:
+    """Detect log type by reading a sample from a file."""
+    sample_lines = []
+    try:
+        with open(filepath, "r", errors="replace") as f:
+            for i, line in enumerate(f):
+                if i >= DETECT_SAMPLE_SIZE:
+                    break
+                sample_lines.append(line)
+    except Exception:
+        return None, 0.0, {}
+
+    if not sample_lines:
+        return None, 0.0, {}
+
+    raw_sample = "".join(sample_lines)
+    return detect_log_type(raw_sample)
+
+
+def parse_and_analyze_file(filepath: str, log_type: str | None = None, exclude_ips: list[str] | None = None, return_parser: bool = False):
+    """Parse and analyze from a file path (streaming, memory-efficient)."""
+    detection_confidence = None
+    detection_scores = None
+
+    if not log_type or log_type == "auto":
+        log_type, detection_confidence, detection_scores = detect_log_type_from_file(filepath)
+
+    if not log_type:
+        result = {
+            "error": "Could not auto-detect log type. Please select the log type manually.",
+            "log_type": None,
+        }
+        return (result, None) if return_parser else result
+
+    if log_type not in PARSERS:
+        result = {"error": f"Unknown log type: {log_type}", "log_type": None}
+        return (result, None) if return_parser else result
+
+    try:
+        parser = PARSERS[log_type]()
+        report = parser.parse_file(filepath, exclude_ips=exclude_ips)
+        report["detected_type"] = log_type
+        if detection_confidence is not None:
+            report["detection_confidence"] = detection_confidence
+            report["detection_scores"] = {k: v for k, v in detection_scores.items() if v > 0}
+        if exclude_ips:
+            report["excluded_ips"] = exclude_ips
+        return (report, parser) if return_parser else report
+    except Exception as exc:
+        result = {"error": f"Failed to parse {log_type} logs: {exc}", "log_type": log_type}
+        return (result, None) if return_parser else result

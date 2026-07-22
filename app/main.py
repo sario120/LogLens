@@ -1,6 +1,8 @@
 import hashlib
 import hmac
 import json
+import os
+import tempfile
 import time
 import uuid
 from collections import defaultdict
@@ -16,7 +18,7 @@ from app.config import (
     API_KEY, SECRET_KEY, TOKEN_TTL, UPLOAD_CHUNK_SIZE,
     AUTH_MAX_ATTEMPTS, AUTH_WINDOW_SECONDS, SLOW_THRESHOLD, CRITICAL_THRESHOLD,
 )
-from app.analyzers.report import parse_and_analyze
+from app.analyzers.report import parse_and_analyze, parse_and_analyze_file
 from app.version import __version__
 
 app = FastAPI(title="LogLens", version=__version__, docs_url=None, redoc_url=None)
@@ -26,7 +28,7 @@ app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
 # --- analysis context cache (5 min TTL) ---
-_analysis_cache: dict[str, dict] = {}  # id -> {"parser": BaseParser, "report": dict, "ts": float}
+_analysis_cache: dict[str, dict] = {}  # id -> {"parser": BaseParser, "report": dict, "ts": float, "tmp_path": str|None}
 _CACHE_TTL = 300  # 5 minutes
 _CACHE_CLEANUP_INTERVAL = 60
 _last_cache_cleanup: float = time.time()
@@ -40,13 +42,19 @@ def _cleanup_analysis_cache():
     _last_cache_cleanup = now
     expired = [aid for aid, entry in _analysis_cache.items() if now - entry["ts"] > _CACHE_TTL]
     for aid in expired:
-        del _analysis_cache[aid]
+        entry = _analysis_cache.pop(aid)
+        tmp = entry.get("tmp_path")
+        if tmp and os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
-def _cache_analysis(parser, report: dict) -> str:
+def _cache_analysis(parser, report: dict, tmp_path: str | None = None) -> str:
     _cleanup_analysis_cache()
     analysis_id = uuid.uuid4().hex[:16]
-    _analysis_cache[analysis_id] = {"parser": parser, "report": report, "ts": time.time()}
+    _analysis_cache[analysis_id] = {"parser": parser, "report": report, "ts": time.time(), "tmp_path": tmp_path}
     return analysis_id
 
 
@@ -169,14 +177,22 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
     if auth_err:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    tmp_path = None
+    skip = []
     if file:
-        raw_bytes = b""
-        while True:
-            chunk = await file.read(UPLOAD_CHUNK_SIZE)
-            if not chunk:
-                break
-            raw_bytes += chunk
-        raw = raw_bytes.decode("utf-8", errors="replace")
+        tmp_fd, tmp_path = tempfile.mkstemp(suffix=".log", prefix="loglens_")
+        try:
+            with os.fdopen(tmp_fd, "wb") as tmp:
+                while True:
+                    chunk = await file.read(UPLOAD_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    tmp.write(chunk)
+        except Exception:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            raise HTTPException(status_code=400, detail="Failed to read uploaded file")
+        skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
     else:
         try:
             body = await request.json()
@@ -188,10 +204,10 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
         slow_threshold = body.get("slow_threshold", "")
         critical_threshold = body.get("critical_threshold", "")
 
-    if not raw.strip():
-        raise HTTPException(status_code=400, detail="No log content provided")
+        if not raw.strip():
+            raise HTTPException(status_code=400, detail="No log content provided")
 
-    skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
+        skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()] if exclude_ips else []
 
     # Apply per-session thresholds if provided
     import app.config as _cfg
@@ -205,14 +221,19 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
         except ValueError: pass
 
     try:
-        report, parser = parse_and_analyze(raw, log_type, exclude_ips=skip or None, return_parser=True)
+        if file:
+            report, parser = parse_and_analyze_file(tmp_path, log_type, exclude_ips=skip or None, return_parser=True)
+        else:
+            report, parser = parse_and_analyze(raw, log_type, exclude_ips=skip or None, return_parser=True)
     finally:
         _cfg.SLOW_THRESHOLD = _orig_slow
         _cfg.CRITICAL_THRESHOLD = _orig_critical
 
     if report.get("error"):
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
         return JSONResponse(report)
-    analysis_id = _cache_analysis(parser, report)
+    analysis_id = _cache_analysis(parser, report, tmp_path=tmp_path)
     report["analysis_id"] = analysis_id
     report["slow_threshold"] = _cfg.SLOW_THRESHOLD
     report["critical_threshold"] = _cfg.CRITICAL_THRESHOLD
