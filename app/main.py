@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import hmac
 import json
@@ -222,9 +223,9 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
 
     try:
         if file:
-            report, parser = parse_and_analyze_file(tmp_path, log_type, exclude_ips=skip or None, return_parser=True)
+            report, parser = await asyncio.to_thread(parse_and_analyze_file, tmp_path, log_type, skip or None, True)
         else:
-            report, parser = parse_and_analyze(raw, log_type, exclude_ips=skip or None, return_parser=True)
+            report, parser = await asyncio.to_thread(parse_and_analyze, raw, log_type, skip or None, True)
     finally:
         _cfg.SLOW_THRESHOLD = _orig_slow
         _cfg.CRITICAL_THRESHOLD = _orig_critical
@@ -291,20 +292,30 @@ async def analyze_batch(request: Request):
 
     try:
         reports = []
-        for f in files:
-            content = f.get("content", "")
-            fname = f.get("name", "unknown")
-            if not content.strip():
-                reports.append({"error": f"No content in {fname}", "filename": fname})
-                continue
-            r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
-            if not r.get("error"):
-                aid = _cache_analysis(p, r)
-                r["analysis_id"] = aid
-                r["slow_threshold"] = _cfg.SLOW_THRESHOLD
-                r["critical_threshold"] = _cfg.CRITICAL_THRESHOLD
-            r["filename"] = fname
-            reports.append(r)
+        def _parse_batch():
+            results = []
+            for f in files:
+                content = f.get("content", "")
+                fname = f.get("name", "unknown")
+                if not content.strip():
+                    results.append({"error": f"No content in {fname}", "filename": fname})
+                    continue
+                r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
+                r["filename"] = fname
+                results.append((r, p))
+            return results
+        results = await asyncio.to_thread(_parse_batch)
+        for item in results:
+            if isinstance(item, dict):
+                reports.append(item)
+            else:
+                r, p = item
+                if not r.get("error"):
+                    aid = _cache_analysis(p, r)
+                    r["analysis_id"] = aid
+                    r["slow_threshold"] = _cfg.SLOW_THRESHOLD
+                    r["critical_threshold"] = _cfg.CRITICAL_THRESHOLD
+                reports.append(r)
     finally:
         _cfg.SLOW_THRESHOLD = _orig_slow
         _cfg.CRITICAL_THRESHOLD = _orig_critical
@@ -333,17 +344,21 @@ async def analyze_correlate(request: Request):
         skip = [ip.strip() for ip in exclude_ips.split(",") if ip.strip()]
 
     parsed_files = []
-    for f in files:
-        content = f.get("content", "")
-        fname = f.get("name", "unknown")
-        log_type = f.get("log_type", "auto")
-        if not content.strip():
-            continue
-        r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
-        if r.get("error"):
-            continue
-        r["filename"] = fname
-        parsed_files.append({"report": r, "parser": p, "filename": fname})
+    def _parse_correlate():
+        results = []
+        for f in files:
+            content = f.get("content", "")
+            fname = f.get("name", "unknown")
+            log_type = f.get("log_type", "auto")
+            if not content.strip():
+                continue
+            r, p = parse_and_analyze(content, log_type, exclude_ips=skip or None, return_parser=True)
+            if r.get("error"):
+                continue
+            r["filename"] = fname
+            results.append({"report": r, "parser": p, "filename": fname})
+        return results
+    parsed_files = await asyncio.to_thread(_parse_correlate)
 
     if not parsed_files:
         raise HTTPException(status_code=400, detail="No valid logs to correlate")
