@@ -265,7 +265,6 @@ document.addEventListener('alpine:init', () => {
       this.error = null;
       try {
         if (this.file) {
-          if (this.file.size > 50 * 1024 * 1024) { this.error = 'File too large (max 50MB).'; this.view = 'upload'; return; }
           await this._uploadFile();
           return;
         } else if (this.pasteContent.trim()) {
@@ -1724,7 +1723,7 @@ function renderBatchCharts(reports) {
                       <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
                     </svg>
                     <p class="text-gray-400 text-sm">Drop a log file here or click to browse</p>
-                    <p class="text-gray-600 text-xs mt-1">Supports .log, .txt, .gz, .csv, or any text file (max 50MB)</p>
+                    <p class="text-gray-600 text-xs mt-1">Supports .log, .txt, .gz, .csv, or any text file</p>
                   </div>
                 </template>
                 <template x-if="file">

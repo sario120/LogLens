@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from app.config import (
-    API_KEY, SECRET_KEY, TOKEN_TTL, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_SIZE,
+    API_KEY, SECRET_KEY, TOKEN_TTL, UPLOAD_CHUNK_SIZE,
     AUTH_MAX_ATTEMPTS, AUTH_WINDOW_SECONDS, SLOW_THRESHOLD, CRITICAL_THRESHOLD,
 )
 from app.analyzers.report import parse_and_analyze
@@ -171,14 +171,10 @@ async def analyze(request: Request, file: UploadFile = File(None), log_type: str
 
     if file:
         raw_bytes = b""
-        total_read = 0
         while True:
             chunk = await file.read(UPLOAD_CHUNK_SIZE)
             if not chunk:
                 break
-            total_read += len(chunk)
-            if total_read > MAX_UPLOAD_BYTES:
-                raise HTTPException(status_code=413, detail="File too large (max 50MB)")
             raw_bytes += chunk
         raw = raw_bytes.decode("utf-8", errors="replace")
     else:
